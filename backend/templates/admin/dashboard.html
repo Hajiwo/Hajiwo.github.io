@@ -1,0 +1,12 @@
+{% extends "admin/index.html" %}
+{% block content %}
+<div class="dashboard-intro"><p class="eyebrow">YOUR WRITING SPACE</p><h2>记录新的想法。</h2><p>从一篇草稿开始，让知识慢慢生长。</p></div>
+<div class="metric-grid">
+{% if metrics.articles != None %}<a href="{% url 'admin:blog_article_changelist' %}" class="metric"><span>全部文章</span><strong>{{ metrics.articles }}</strong><small>管理你的内容 ↗</small></a><a href="{% url 'admin:blog_article_changelist' %}?status__exact=published" class="metric"><span>已上线文章</span><strong>{{ metrics.published }}</strong><small>不含未来定时文章</small></a>{% endif %}
+{% if metrics.pending != None %}<a href="{% url 'admin:blog_comment_changelist' %}?approved__exact=0" class="metric"><span>待审核评论</span><strong>{{ metrics.pending }}</strong><small>查看读者的声音 ↗</small></a>{% endif %}
+{% if metrics.series != None %}<a href="{% url 'admin:blog_series_changelist' %}" class="metric"><span>文章系列</span><strong>{{ metrics.series }}</strong><small>整理主题与方向 ↗</small></a>{% endif %}
+</div>
+{% if perms.blog.add_article %}<a class="write-button" href="{% url 'admin:blog_article_add' %}">＋ 写一篇新文章</a>{% endif %}
+{% if metrics.articles != None %}<section class="recent-panel"><h2>最近编辑</h2>{% for article in recent_articles %}<a class="recent-row" href="{% url 'admin:blog_article_change' article.pk %}"><span>{{ article.title }}<small>{{ article.series|default:'未分类' }}</small></span><span class="status-tag">{{ article.get_status_display }}</span></a>{% empty %}<p class="empty-copy">还没有文章。创建第一篇草稿，开始你的记录。</p>{% endfor %}</section>{% endif %}
+{{ block.super }}
+{% endblock %}

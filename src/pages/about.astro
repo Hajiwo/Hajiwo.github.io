@@ -1,35 +1,30 @@
 ---
-//import AboutHeroImage from '../assets/blog-placeholder-about.jpg';
 import Layout from '../layouts/BlogPost.astro';
 import ProfileImage from '../assets/IMG_Hakiwo_20260501.jpeg';
-
 ---
 
 <Layout
 	title="Jundong Chen"
-	description="My Profile"
+	description="About Jundong Chen"
 	pubDate={new Date('May 11 2026')}
 	heroImage={ProfileImage}
 >
+	<section data-language-content="zh">
+		<p>你好，这里是我的个人博客。</p>
+		<p>我目前在德国攻读信息技术硕士。</p>
+		<h4>教育经历</h4>
+		<ul>
+			<li><b>Oct 2025–present:</b> M.Sc. 信息技术, <a href="https://www.uni-stuttgart.de/en/" target="_blank" rel="noopener">斯图加特大学</a></li>
+			<li><b>Oct 2021–Jun 2025:</b> B.Eng. 计算机科学与技术, <a href="https://www.seu.edu.cn/english/main.htm" target="_blank" rel="noopener">东南大学</a></li>
+		</ul>
+	</section>
+	<section data-language-content="en">
+		<p>Hi, this is my personal blog.</p>
+		<p> I’m currently pursuing a master’s degree in Information Technology in Germany.</p>
+		<h4>Education</h4>
+		<ul>
+			<li><b>Oct 2025–present:</b> M.Sc. Information Technology, <a href="https://www.uni-stuttgart.de/en/" target="_blank" rel="noopener">University of Stuttgart</a></li>
+			<li><b>Oct 2021–Jun 2025:</b> B.Eng. Computer Science and Technology, <a href="https://www.seu.edu.cn/english/main.htm" target="_blank" rel="noopener">Southeast University</a></li>
+		</ul>
 
-	<p>
-		Hi, I'm Jundong Chen, and this is my blog website where I put on some experiences and knowledge. </br>
-		I'm currently doing my master's degree in Germany. 
-	</br>My goal is to work in the field of AI.
-	</p>	
-		
-	<h4>Education</h4>
-	<ul>
-		<li><b>	2025.10-present:</b> Master of Information Technology, <a href="https://www.uni-stuttgart.de/en/" target="_blank">University of Stuttgart</a></li>
-		<li><b>2021.10-2025.06:</b> Bachelor of Computer Science, <a href="https://www.seu.edu.cn/english/main.htm" target="_blank">Southeast University</a></li>
-	</ul>
-
-</br>
-
-	<h5>My friends:</h5>
-	<p>
-		 <a href="https://ou524u.github.io/" target="_blank">Haoru Wang</a>, <a href="https://zhuochen.me/" target="_blank">Zhuo Chen</a>, <a href="https://www.linkedin.com/in/yanxin-liu-737480309/" target="_blank">Yanxin Liu</a>, <a href="https://www.linkedin.com/in/wenhao-cao-801b16233/" target="_blank">Wenhao Cao</a>, <a href="https://omkarprabhune.com/" target="_blank">Omkar Prabhune</a>,</br> 
-		 <a href="https://www.linkedin.com/in/jiayi-jian-essec/?locale=en" target="_blank">Jiayi Jian</a>
-		</p>
-	
 </Layout>

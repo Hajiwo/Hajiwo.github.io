@@ -1,44 +1,421 @@
 ---
 import { getCollection } from 'astro:content';
-const posts = (await getCollection('blog')).sort((a,b) => +b.data.pubDate - +a.data.pubDate);
-const series = [...new Set(posts.map(p => p.data.series))];
+
+const posts = (await getCollection('blog')).sort((a, b) => +b.data.pubDate - +a.data.pubDate);
+const series = [...new Set(posts.map((post) => post.data.series))];
 const colors = ['#81c784', '#e57373', '#64b5f6', '#f06292'];
-const date = (d: Date) => new Intl.DateTimeFormat('zh-CN', {year:'numeric', month:'long', day:'numeric', timeZone:'UTC'}).format(d);
+const seriesInEnglish = (name: string) => ({
+	'学习笔记': 'Study Notes',
+	'知乎': 'Zhihu Essays',
+}[name] || name);
+const date = (value: Date) => new Intl.DateTimeFormat('zh-CN', {
+	year: 'numeric', month: 'long', day: 'numeric', timeZone: 'UTC',
+}).format(value);
+const configuredApi = import.meta.env.PUBLIC_API_BASE_URL || (import.meta.env.DEV ? 'http://127.0.0.1:8000/api/v1' : '');
+const apiBase = configuredApi.replace(/\/$/, '');
 ---
-<main id="main" class="archive">
-  <section class="intro"><p class="eyebrow">JUNDONG CHEN / DIGITAL GARDEN</p><h1>全部文章<span class="heading-dot">.</span></h1><p>关于 AI、编程与学习的思考和记录。<br class="mobile-break" /> 在实践中探索，在文字中沉淀。</p></section>
-  <section aria-labelledby="series-heading" class="series-section">
-    <div class="section-heading"><h2 id="series-heading">▦ 系列</h2><span>循着一个主题，慢慢深入</span></div>
-    <div class="series-grid">
-      {series.map((name,i) => <button type="button" class="series-card" data-series={name} aria-pressed="false" style={`--series-color:${colors[i % colors.length]}`}><span class="card-icon" aria-hidden="true">{['▤','✎','◎','↗'][i%4]}</span><span class="tag"><i></i>专题系列</span><h3>{name}</h3><p>{name === '学习笔记' ? '收集值得反复学习的课程与资源，记录计算机科学和 AI 的探索路径。' : `围绕「${name}」的文章与实践记录。`}</p><span class="card-bottom">{posts.filter(p => p.data.series === name).length} 篇文章 <span>↗</span></span></button>)}
-      <div class="writing-note"><span aria-hidden="true">✎</span><p>学习，实践，记录。</p><small>让每一次探索，都留下线索。</small></div>
-    </div>
-  </section>
-  <section class="articles-section" aria-labelledby="articles-heading">
-    <div class="section-heading"><h2 id="articles-heading">文章索引</h2><span id="result-count" role="status">共 {posts.length} 篇</span></div>
-    <div class="filters" aria-label="按系列筛选"><button class="filter" data-filter="" aria-pressed="true">全部 · {posts.length}</button>{series.map((s,i) => <button class="filter" data-filter={s} aria-pressed="false" style={`--series-color:${colors[i%colors.length]}`}><i></i>{s} · {posts.filter(p => p.data.series === s).length}</button>)}</div>
-    <div class="search-box"><span aria-hidden="true">⌕</span><label class="sr-only" for="article-search">搜索文章</label><input id="article-search" type="search" placeholder="搜索标题、内容简介…" autocomplete="off"/><kbd>/</kbd></div>
-    <ul class="article-list">{posts.map(post => <li data-article data-series={post.data.series} data-search={`${post.data.title} ${post.data.description} ${post.data.series}`.toLowerCase()}><a class="article-link" href={`/blog/${post.id}/`}><div><h3>{post.data.title}</h3><p>{post.data.description}</p></div><div class="article-meta"><span class="tag" style={`--series-color:${colors[series.indexOf(post.data.series)%colors.length]}`}><i></i>{post.data.series}</span><time datetime={post.data.pubDate.toISOString()}>{date(post.data.pubDate)}</time><span aria-hidden="true">↗</span></div></a></li>)}</ul>
-    <div id="empty-state" hidden><h3>还没有找到相关文章</h3><p>换个关键词，或试试其他系列。</p><button id="reset-search" type="button">清除筛选</button></div>
-  </section>
+
+<main id="main" class="archive" data-api-base={apiBase}>
+	<section class="intro">
+		<p class="eyebrow">JUNDONG CHEN / DIGITAL GARDEN</p>
+		<h1><span data-i18n-zh="全部文章" data-i18n-en="All Articles">全部文章</span><span class="heading-dot">.</span></h1>
+		<p>
+			<span data-i18n-zh="关于 AI、编程与学习的思考和记录。" data-i18n-en="Notes on AI, programming, and learning.">关于 AI、编程与学习的思考和记录。</span>
+			<br class="mobile-break" />
+			<span data-i18n-zh="在实践中探索，在文字中沉淀。" data-i18n-en="Explore through practice, reflect through writing.">在实践中探索，在文字中沉淀。</span>
+		</p>
+	</section>
+
+	<section aria-labelledby="series-heading" class="series-section">
+		<div class="section-heading">
+			<h2 id="series-heading">▦ <span data-i18n-zh="系列" data-i18n-en="Series">系列</span></h2>
+			<span data-i18n-zh="循着一个主题，慢慢深入" data-i18n-en="Follow one subject and go deeper">循着一个主题，慢慢深入</span>
+		</div>
+		<div class="series-grid">
+			{series.map((name, index) => (
+				<button type="button" class="series-card" data-series={name} aria-pressed="false" style={`--series-color:${colors[index % colors.length]}`}>
+					<span class="card-icon" aria-hidden="true">{['▤', '✎', '◎', '↗'][index % 4]}</span>
+					<span class="tag"><i></i><span data-i18n-zh="专题系列" data-i18n-en="Collection">专题系列</span></span>
+					<h3 data-i18n-zh={name} data-i18n-en={seriesInEnglish(name)}>{name}</h3>
+					<p
+						data-i18n-zh={name === '学习笔记' ? '收集值得反复学习的课程与资源，记录计算机科学和 AI 的探索路径。' : `围绕「${name}」的文章与实践记录。`}
+						data-i18n-en={name === '学习笔记' ? 'Courses and resources worth revisiting, with notes from exploring computer science and AI.' : `Articles and experiments about ${name}.`}
+					>
+						{name === '学习笔记' ? '收集值得反复学习的课程与资源，记录计算机科学和 AI 的探索路径。' : `围绕「${name}」的文章与实践记录。`}
+					</p>
+					<span class="card-bottom">
+						<span class="series-count" data-count={posts.filter((post) => post.data.series === name).length}>{posts.filter((post) => post.data.series === name).length} 篇文章</span>
+						<span>↗</span>
+					</span>
+				</button>
+			))}
+			<div class="writing-note">
+				<span aria-hidden="true">✎</span>
+				<p data-i18n-zh="学习，实践，记录。" data-i18n-en="Learn. Build. Write.">学习，实践，记录。</p>
+				<small data-i18n-zh="让每一次探索，都留下线索。" data-i18n-en="Leave a trail for every exploration.">让每一次探索，都留下线索。</small>
+			</div>
+		</div>
+	</section>
+
+	<section class="articles-section" aria-labelledby="articles-heading">
+		<div class="section-heading">
+			<h2 id="articles-heading" data-i18n-zh="文章索引" data-i18n-en="Article Index">文章索引</h2>
+			<div class="article-index-status">
+				<span id="article-sync-state" aria-live="polite"></span>
+				<span id="result-count" role="status" data-count={posts.length}>共 {posts.length} 篇</span>
+			</div>
+		</div>
+		<div class="filters" aria-label="按系列筛选" data-i18n-aria-label-zh="按系列筛选" data-i18n-aria-label-en="Filter by series">
+			<button class="filter" data-filter="" aria-pressed="true"><span data-filter-label data-i18n-zh="全部" data-i18n-en="All">全部</span> · <span data-filter-count>{posts.length}</span></button>
+			{series.map((name, index) => (
+				<button class="filter" data-filter={name} aria-pressed="false" style={`--series-color:${colors[index % colors.length]}`}>
+					<i></i><span data-filter-label data-i18n-zh={name} data-i18n-en={seriesInEnglish(name)}>{name}</span> · <span data-filter-count>{posts.filter((post) => post.data.series === name).length}</span>
+				</button>
+			))}
+		</div>
+		<div class="search-box">
+			<span aria-hidden="true">⌕</span>
+			<label class="sr-only" for="article-search" data-i18n-zh="搜索文章" data-i18n-en="Search articles">搜索文章</label>
+			<input id="article-search" type="search" placeholder="搜索标题、内容简介…" data-i18n-placeholder-zh="搜索标题、内容简介…" data-i18n-placeholder-en="Search titles and descriptions…" autocomplete="off" />
+			<kbd>/</kbd>
+		</div>
+		<ul class="article-list">
+			{posts.map((post) => (
+				<li data-article data-slug={post.id} data-series={post.data.series} data-published-at={post.data.pubDate.toISOString()} data-search={`${post.data.title} ${post.data.description} ${post.data.series} ${seriesInEnglish(post.data.series)}`.toLowerCase()}>
+					<a class="article-link" href={`/blog/${post.id}/`}>
+						<div><h3>{post.data.title}</h3><p>{post.data.description}</p></div>
+						<div class="article-meta">
+							<span class="tag" style={`--series-color:${colors[series.indexOf(post.data.series) % colors.length]}`}><i></i><span data-i18n-zh={post.data.series} data-i18n-en={seriesInEnglish(post.data.series)}>{post.data.series}</span></span>
+							<time datetime={post.data.pubDate.toISOString()} data-date={post.data.pubDate.toISOString()}>{date(post.data.pubDate)}</time>
+							<span aria-hidden="true">↗</span>
+						</div>
+					</a>
+				</li>
+			))}
+		</ul>
+		<div id="empty-state" hidden>
+			<h3 data-i18n-zh="还没有找到相关文章" data-i18n-en="No matching articles">还没有找到相关文章</h3>
+			<p data-i18n-zh="换个关键词，或试试其他系列。" data-i18n-en="Try another keyword or series.">换个关键词，或试试其他系列。</p>
+			<button id="reset-search" type="button" data-i18n-zh="清除筛选" data-i18n-en="Clear filters">清除筛选</button>
+		</div>
+	</section>
 </main>
+
 <script>
-const input = document.querySelector<HTMLInputElement>('#article-search')!;
-const filters = [...document.querySelectorAll<HTMLButtonElement>('[data-filter]')];
-const cards = [...document.querySelectorAll<HTMLButtonElement>('button[data-series]')];
-const rows = [...document.querySelectorAll<HTMLElement>('[data-article]')];
-let selected = '';
-function update() {
- const query = input.value.trim().toLowerCase(); let count = 0;
- rows.forEach(row => { row.hidden = !((!selected || row.dataset.series === selected) && (row.dataset.search || '').includes(query)); if (!row.hidden) count++; });
- filters.forEach(b => b.setAttribute('aria-pressed', String(b.dataset.filter === selected)));
- cards.forEach(b => b.setAttribute('aria-pressed', String(b.dataset.series === selected)));
- document.querySelector('#result-count')!.textContent = `共 ${count} 篇`;
- (document.querySelector('#empty-state') as HTMLElement).hidden = count > 0;
-}
-filters.forEach(b => b.addEventListener('click', () => { selected = b.dataset.filter || ''; update(); }));
-cards.forEach(b => b.addEventListener('click', () => { selected = selected === b.dataset.series ? '' : b.dataset.series || ''; update(); }));
-input.addEventListener('input', update);
-document.querySelector('#reset-search')!.addEventListener('click', () => { selected = ''; input.value = ''; update(); input.focus(); });
-document.addEventListener('keydown', e => { if(e.key === '/' && !e.metaKey && !e.ctrlKey && !e.altKey && !(e.target instanceof HTMLElement && (e.target.matches('input,textarea,select') || e.target.isContentEditable))) { e.preventDefault(); input.focus(); } });
+	type ArticleSummary = {
+		title: string;
+		title_en: string;
+		slug: string;
+		description: string;
+		description_en: string;
+		series: string | null;
+		series_name: string | null;
+		series_name_en: string | null;
+		published_at: string;
+		updated_at: string;
+	};
+	type SeriesSummary = {
+		name: string;
+		name_en: string;
+		slug: string;
+		description: string;
+		description_en: string;
+		article_count: number;
+	};
+
+	const archive = document.querySelector<HTMLElement>('.archive')!;
+	const input = document.querySelector<HTMLInputElement>('#article-search')!;
+	const filterContainer = document.querySelector<HTMLElement>('.filters')!;
+	const articleList = document.querySelector<HTMLUListElement>('.article-list')!;
+	const seriesGrid = document.querySelector<HTMLElement>('.series-grid')!;
+	const writingNote = seriesGrid.querySelector<HTMLElement>('.writing-note');
+	const syncState = document.querySelector<HTMLElement>('#article-sync-state')!;
+	let selected = '';
+
+	const isEnglish = () => document.documentElement.dataset.language === 'en';
+	const rows = () => [...document.querySelectorAll<HTMLElement>('[data-article]')];
+	const filters = () => [...document.querySelectorAll<HTMLButtonElement>('[data-filter]')];
+	const cards = () => [...document.querySelectorAll<HTMLButtonElement>('button[data-series]')];
+	const seriesInEnglish = (name: string) => ({
+		'学习笔记': 'Study Notes',
+		'知乎': 'Zhihu Essays',
+	}[name] || name);
+	const defaultSeriesDescriptionInEnglish = (name: string) => ({
+		'学习笔记': 'Courses and resources worth revisiting, with notes from exploring computer science and AI.',
+		'知乎': 'Essays originally published on Zhihu, collected here for easier reading.',
+	}[name] || `Articles and experiments about ${seriesInEnglish(name)}.`);
+	const seriesDescriptionInChinese = (series: SeriesSummary) => {
+		if (series.name === '知乎') return '收录发布于知乎的文章，在这里继续整理与沉淀。';
+		return series.description || `围绕「${series.name}」的文章与实践记录。`;
+	};
+	const colorFor = (name: string) => {
+		const palette = ['#81c784', '#e57373', '#64b5f6', '#f06292'];
+		const value = [...name].reduce((sum, character) => sum + (character.codePointAt(0) || 0), 0);
+		return palette[value % palette.length];
+	};
+
+	function formatDate(value: string) {
+		return new Intl.DateTimeFormat(isEnglish() ? 'en-US' : 'zh-CN', {
+			year: 'numeric', month: isEnglish() ? 'short' : 'long', day: 'numeric', timeZone: 'UTC',
+		}).format(new Date(value));
+	}
+
+	function ensureFilter(seriesName: string, seriesNameEn = seriesInEnglish(seriesName)) {
+		if (filters().some((button) => button.dataset.filter === seriesName)) return;
+		const button = document.createElement('button');
+		button.type = 'button';
+		button.className = 'filter';
+		button.dataset.filter = seriesName;
+		button.setAttribute('aria-pressed', 'false');
+		button.style.setProperty('--series-color', colorFor(seriesName));
+		const dot = document.createElement('i');
+		const label = document.createElement('span');
+		label.dataset.filterLabel = '';
+		label.dataset.i18nZh = seriesName;
+		label.dataset.i18nEn = seriesNameEn;
+		label.textContent = isEnglish() ? seriesNameEn : seriesName;
+		const separator = document.createTextNode(' · ');
+		const count = document.createElement('span');
+		count.dataset.filterCount = '';
+		count.textContent = '0';
+		button.append(dot, label, separator, count);
+		filterContainer.append(button);
+	}
+
+	function ensureSeriesCard(series: SeriesSummary) {
+		const nameEn = series.name_en || seriesInEnglish(series.name);
+		ensureFilter(series.name, nameEn);
+		let card = cards().find((item) => item.dataset.series === series.name);
+		if (!card) {
+			card = document.createElement('button');
+			card.type = 'button';
+			card.className = 'series-card';
+			card.dataset.series = series.name;
+			card.setAttribute('aria-pressed', 'false');
+			card.style.setProperty('--series-color', colorFor(series.name));
+
+			const icon = document.createElement('span');
+			icon.className = 'card-icon';
+			icon.setAttribute('aria-hidden', 'true');
+			icon.textContent = ['▤', '✎', '◎', '↗'][cards().length % 4];
+			const tag = document.createElement('span');
+			tag.className = 'tag';
+			const dot = document.createElement('i');
+			const tagLabel = document.createElement('span');
+			tagLabel.dataset.i18nZh = '专题系列';
+			tagLabel.dataset.i18nEn = 'Collection';
+			tagLabel.textContent = isEnglish() ? 'Collection' : '专题系列';
+			tag.append(dot, tagLabel);
+			const title = document.createElement('h3');
+			const description = document.createElement('p');
+			const bottom = document.createElement('span');
+			bottom.className = 'card-bottom';
+			const count = document.createElement('span');
+			count.className = 'series-count';
+			const arrow = document.createElement('span');
+			arrow.textContent = '↗';
+			bottom.append(count, arrow);
+			card.append(icon, tag, title, description, bottom);
+			seriesGrid.insertBefore(card, writingNote);
+		}
+
+		const title = card.querySelector<HTMLElement>('h3')!;
+		title.dataset.i18nZh = series.name;
+		title.dataset.i18nEn = nameEn;
+		title.textContent = isEnglish() ? nameEn : series.name;
+		const description = card.querySelector<HTMLElement>('p')!;
+		description.dataset.i18nZh = seriesDescriptionInChinese(series);
+		description.dataset.i18nEn = series.description_en || defaultSeriesDescriptionInEnglish(series.name);
+		description.textContent = isEnglish() ? description.dataset.i18nEn : description.dataset.i18nZh;
+		const count = card.querySelector<HTMLElement>('.series-count')!;
+		count.dataset.count = String(series.article_count || 0);
+		count.textContent = isEnglish()
+			? `${series.article_count || 0} article${series.article_count === 1 ? '' : 's'}`
+			: `${series.article_count || 0} 篇文章`;
+	}
+
+	function createTag(seriesName: string, seriesNameEn = seriesInEnglish(seriesName)) {
+		const tag = document.createElement('span');
+		tag.className = 'tag';
+		tag.style.setProperty('--series-color', colorFor(seriesName));
+		const dot = document.createElement('i');
+		const label = document.createElement('span');
+		label.dataset.i18nZh = seriesName;
+		label.dataset.i18nEn = seriesNameEn;
+		label.textContent = isEnglish() ? seriesNameEn : seriesName;
+		tag.append(dot, label);
+		return tag;
+	}
+
+	function upsertArticle(article: ArticleSummary) {
+		const seriesName = article.series_name || article.series || (isEnglish() ? 'Uncategorized' : '未分类');
+		const seriesNameEn = article.series_name_en || seriesInEnglish(seriesName);
+		const titleEn = article.title_en || article.title;
+		const descriptionEn = article.description_en || article.description;
+		ensureFilter(seriesName, seriesNameEn);
+		let row = rows().find((item) => item.dataset.slug === article.slug);
+		if (!row) {
+			row = document.createElement('li');
+			row.dataset.article = '';
+			articleList.append(row);
+		}
+		row.dataset.slug = article.slug;
+		row.dataset.series = seriesName;
+		row.dataset.publishedAt = article.published_at;
+		row.dataset.search = `${article.title} ${titleEn} ${article.description} ${descriptionEn} ${seriesName} ${seriesNameEn}`.toLowerCase();
+		row.replaceChildren();
+
+		const link = document.createElement('a');
+		link.className = 'article-link';
+		link.href = `/blog/article/?slug=${encodeURIComponent(article.slug)}`;
+		const copy = document.createElement('div');
+		const title = document.createElement('h3');
+		title.dataset.i18nZh = article.title;
+		title.dataset.i18nEn = titleEn;
+		title.textContent = isEnglish() ? titleEn : article.title;
+		const description = document.createElement('p');
+		description.dataset.i18nZh = article.description;
+		description.dataset.i18nEn = descriptionEn;
+		description.textContent = isEnglish() ? descriptionEn : article.description;
+		copy.append(title, description);
+		const meta = document.createElement('div');
+		meta.className = 'article-meta';
+		const time = document.createElement('time');
+		time.dateTime = article.published_at;
+		time.dataset.date = article.published_at;
+		time.textContent = formatDate(article.published_at);
+		const arrow = document.createElement('span');
+		arrow.setAttribute('aria-hidden', 'true');
+		arrow.textContent = '↗';
+		meta.append(createTag(seriesName, seriesNameEn), time, arrow);
+		link.append(copy, meta);
+		row.append(link);
+	}
+
+	function updateCounts() {
+		const counts = new Map<string, number>();
+		rows().forEach((row) => counts.set(row.dataset.series || '', (counts.get(row.dataset.series || '') || 0) + 1));
+		filters().forEach((button) => {
+			const count = button.dataset.filter ? counts.get(button.dataset.filter) || 0 : rows().length;
+			const output = button.querySelector<HTMLElement>('[data-filter-count]');
+			if (output) output.textContent = String(count);
+		});
+		cards().forEach((card) => {
+			const output = card.querySelector<HTMLElement>('.series-count');
+			if (!output) return;
+			const count = counts.get(card.dataset.series || '') || 0;
+			output.dataset.count = String(count);
+			output.textContent = isEnglish() ? `${count} article${count === 1 ? '' : 's'}` : `${count} 篇文章`;
+		});
+	}
+
+	function update() {
+		const query = input.value.trim().toLowerCase();
+		let visible = 0;
+		rows().forEach((row) => {
+			row.hidden = !((!selected || row.dataset.series === selected) && (row.dataset.search || '').includes(query));
+			if (!row.hidden) visible += 1;
+			const time = row.querySelector<HTMLTimeElement>('time[data-date]');
+			if (time?.dataset.date) time.textContent = formatDate(time.dataset.date);
+		});
+		filters().forEach((button) => button.setAttribute('aria-pressed', String(button.dataset.filter === selected)));
+		cards().forEach((button) => button.setAttribute('aria-pressed', String(button.dataset.series === selected)));
+		const resultCount = document.querySelector<HTMLElement>('#result-count')!;
+		resultCount.dataset.count = String(visible);
+		resultCount.textContent = isEnglish() ? `${visible} article${visible === 1 ? '' : 's'}` : `共 ${visible} 篇`;
+		document.querySelector<HTMLElement>('#empty-state')!.hidden = visible > 0;
+		updateCounts();
+	}
+
+	async function fetchAllPages<T>(url: string) {
+		let next: string | null = url;
+		const items: T[] = [];
+		let pageCount = 0;
+		while (next && pageCount < 100) {
+			const response = await fetch(next, { headers: { Accept: 'application/json' } });
+			if (!response.ok) throw new Error(`HTTP ${response.status}`);
+			const payload = await response.json();
+			if (Array.isArray(payload)) {
+				items.push(...payload);
+				next = null;
+			} else {
+				items.push(...(Array.isArray(payload.results) ? payload.results : []));
+				next = payload.next ? new URL(payload.next, window.location.href).toString() : null;
+			}
+			pageCount += 1;
+		}
+		return items;
+	}
+
+	async function fetchBackendContent() {
+		const apiBase = (archive.dataset.apiBase || '').replace(/\/$/, '');
+		if (!apiBase) {
+			syncState.hidden = true;
+			return;
+		}
+		syncState.textContent = isEnglish() ? 'Syncing…' : '正在同步…';
+		try {
+			const [articles, backendSeries] = await Promise.all([
+				fetchAllPages<ArticleSummary>(`${apiBase}/articles/`),
+				fetchAllPages<SeriesSummary>(`${apiBase}/series/`),
+			]);
+			backendSeries.forEach(ensureSeriesCard);
+			const knownSeries = new Set(backendSeries.map((item) => item.name));
+			articles.forEach((article) => {
+				const name = article.series_name || article.series;
+				if (name && !knownSeries.has(name)) {
+					ensureSeriesCard({
+						name,
+						name_en: article.series_name_en || seriesInEnglish(name),
+						slug: '',
+						description: '',
+						description_en: '',
+						article_count: 0,
+					});
+					knownSeries.add(name);
+				}
+			});
+			articles.forEach(upsertArticle);
+			articleList.append(...rows().sort((left, right) => Date.parse(right.dataset.publishedAt || '') - Date.parse(left.dataset.publishedAt || '')));
+			syncState.dataset.state = 'ready';
+			syncState.textContent = isEnglish() ? '● Backend synced' : '● 已同步后端';
+			update();
+		} catch {
+			syncState.dataset.state = 'offline';
+			syncState.textContent = isEnglish() ? '○ Showing local articles' : '○ 显示本地文章';
+		}
+	}
+
+	filterContainer.addEventListener('click', (event) => {
+		const button = (event.target as HTMLElement).closest<HTMLButtonElement>('[data-filter]');
+		if (!button) return;
+		selected = button.dataset.filter || '';
+		update();
+	});
+	seriesGrid.addEventListener('click', (event) => {
+		const button = (event.target as HTMLElement).closest<HTMLButtonElement>('button[data-series]');
+		if (!button) return;
+		selected = selected === button.dataset.series ? '' : button.dataset.series || '';
+		update();
+	});
+	input.addEventListener('input', update);
+	document.querySelector('#reset-search')!.addEventListener('click', () => {
+		selected = '';
+		input.value = '';
+		update();
+		input.focus();
+	});
+	window.addEventListener('languagechange', () => {
+		if (syncState.dataset.state === 'ready') syncState.textContent = isEnglish() ? '● Backend synced' : '● 已同步后端';
+		if (syncState.dataset.state === 'offline') syncState.textContent = isEnglish() ? '○ Showing local articles' : '○ 显示本地文章';
+		update();
+	});
+	document.addEventListener('keydown', (event) => {
+		if (event.key === '/' && !event.metaKey && !event.ctrlKey && !event.altKey && !(event.target instanceof HTMLElement && (event.target.matches('input,textarea,select') || event.target.isContentEditable))) {
+			event.preventDefault();
+			input.focus();
+		}
+	});
+	update();
+	fetchBackendContent();
 </script>

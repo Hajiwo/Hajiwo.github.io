@@ -22,3 +22,12 @@ pnpm-debug.log*
 
 # jetbrains setting folder
 .idea/
+
+# Django backend
+backend/.venv/
+__pycache__/
+*.py[cod]
+backend/*.sqlite3*
+backend/staticfiles/
+backend/.env*
+!backend/.env.example

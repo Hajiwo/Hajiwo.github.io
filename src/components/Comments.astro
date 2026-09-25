@@ -1,0 +1,162 @@
+---
+interface Props {
+	slug?: string;
+}
+
+const { slug = '' } = Astro.props;
+const configuredApi = import.meta.env.PUBLIC_API_BASE_URL || (import.meta.env.DEV ? 'http://127.0.0.1:8000/api/v1' : '');
+const apiBase = configuredApi.replace(/\/$/, '');
+const endpoint = apiBase && slug ? `${apiBase}/articles/${encodeURIComponent(slug)}/comments/` : '';
+---
+
+<section class="comments" data-comments data-endpoint={endpoint} data-api-base={apiBase} data-slug={slug}>
+	<div class="comments-heading">
+		<div>
+			<p class="eyebrow" data-i18n-zh="CONVERSATION / 交流" data-i18n-en="CONVERSATION">CONVERSATION / 交流</p>
+			<h2 data-i18n-zh="评论" data-i18n-en="Comments">评论</h2>
+		</div>
+		<span class="backend-status" data-backend-status aria-live="polite"></span>
+	</div>
+	<div class="comment-list" data-comment-list aria-live="polite">
+		<p class="comments-placeholder" data-i18n-zh="正在读取评论…" data-i18n-en="Loading comments…">正在读取评论…</p>
+	</div>
+	<form class="comment-form" data-comment-form>
+		<div class="comment-field">
+			<label for={`comment-author-${slug}`} data-i18n-zh="称呼" data-i18n-en="Name">称呼</label>
+			<input id={`comment-author-${slug}`} name="author" maxlength="80" required autocomplete="name" placeholder="你的名字" data-i18n-placeholder-zh="你的名字" data-i18n-placeholder-en="Your name" />
+		</div>
+		<div class="comment-field">
+			<label for={`comment-body-${slug}`} data-i18n-zh="评论" data-i18n-en="Comment">评论</label>
+			<textarea id={`comment-body-${slug}`} name="body" maxlength="2000" required rows="5" placeholder="写下你的想法…" data-i18n-placeholder-zh="写下你的想法…" data-i18n-placeholder-en="Share your thoughts…"></textarea>
+		</div>
+		<div class="comment-submit-row">
+			<p data-comment-message role="status"></p>
+			<button type="submit" data-i18n-zh="提交评论" data-i18n-en="Post comment">提交评论</button>
+		</div>
+		<p class="moderation-note" data-i18n-zh="评论将在审核后公开显示。" data-i18n-en="Comments appear after moderation.">评论将在审核后公开显示。</p>
+	</form>
+</section>
+
+<script>
+	type CommentRecord = { id: number; author: string; body: string; created_at: string };
+	const root = document.querySelector<HTMLElement>('[data-comments]');
+
+	if (root) {
+		const runtimeSlug = root.dataset.slug || new URLSearchParams(window.location.search).get('slug') || '';
+		const apiBase = (root.dataset.apiBase || '').replace(/\/$/, '');
+		const endpoint = root.dataset.endpoint || (apiBase && runtimeSlug ? `${apiBase}/articles/${encodeURIComponent(runtimeSlug)}/comments/` : '');
+		const list = root.querySelector<HTMLElement>('[data-comment-list]')!;
+		const form = root.querySelector<HTMLFormElement>('[data-comment-form]')!;
+		const message = root.querySelector<HTMLElement>('[data-comment-message]')!;
+		const status = root.querySelector<HTMLElement>('[data-backend-status]')!;
+		let comments: CommentRecord[] = [];
+		let state: 'loading' | 'ready' | 'offline' = 'loading';
+
+		const english = () => document.documentElement.dataset.language === 'en';
+		const translate = (zh: string, en: string) => english() ? en : zh;
+
+		function renderComments() {
+			list.replaceChildren();
+			if (state === 'loading') {
+				const copy = document.createElement('p');
+				copy.className = 'comments-placeholder';
+				copy.textContent = translate('正在读取评论…', 'Loading comments…');
+				list.append(copy);
+				return;
+			}
+			if (state === 'offline') {
+				const copy = document.createElement('p');
+				copy.className = 'comments-placeholder';
+				copy.textContent = translate('评论服务暂时不可用。', 'Comments are temporarily unavailable.');
+				list.append(copy);
+				return;
+			}
+			if (!comments.length) {
+				const copy = document.createElement('p');
+				copy.className = 'comments-placeholder';
+				copy.textContent = translate('还没有评论，欢迎留下第一条。', 'No comments yet. Start the conversation.');
+				list.append(copy);
+				return;
+			}
+			comments.forEach((comment) => {
+				const article = document.createElement('article');
+				article.className = 'comment';
+				const header = document.createElement('header');
+				const author = document.createElement('strong');
+				author.textContent = comment.author;
+				const time = document.createElement('time');
+				time.dateTime = comment.created_at;
+				time.textContent = new Intl.DateTimeFormat(english() ? 'en-US' : 'zh-CN', {
+					year: 'numeric', month: english() ? 'short' : 'long', day: 'numeric',
+				}).format(new Date(comment.created_at));
+				const body = document.createElement('p');
+				body.textContent = comment.body;
+				header.append(author, time);
+				article.append(header, body);
+				list.append(article);
+			});
+		}
+
+		function updateStatus() {
+			status.textContent = state === 'ready'
+				? translate('● 后端已连接', '● Backend connected')
+				: state === 'offline'
+					? translate('○ 后端未连接', '○ Backend offline')
+					: translate('连接中…', 'Connecting…');
+			status.dataset.state = state;
+			form.querySelectorAll<HTMLInputElement | HTMLTextAreaElement | HTMLButtonElement>('input, textarea, button').forEach((control) => {
+				control.disabled = state !== 'ready';
+			});
+		}
+
+		async function loadComments() {
+			if (!endpoint) {
+				state = 'offline';
+				updateStatus();
+				renderComments();
+				return;
+			}
+			try {
+				const response = await fetch(endpoint, { headers: { Accept: 'application/json' } });
+				if (!response.ok) throw new Error(`HTTP ${response.status}`);
+				const payload = await response.json();
+				comments = Array.isArray(payload.results) ? payload.results : [];
+				state = 'ready';
+			} catch {
+				state = 'offline';
+			}
+			updateStatus();
+			renderComments();
+		}
+
+		form.addEventListener('submit', async (event) => {
+			event.preventDefault();
+			if (state !== 'ready') return;
+			const submit = form.querySelector<HTMLButtonElement>('button[type="submit"]')!;
+			const data = new FormData(form);
+			submit.disabled = true;
+			message.textContent = translate('正在提交…', 'Posting…');
+			try {
+				const response = await fetch(endpoint, {
+					method: 'POST',
+					headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+					body: JSON.stringify({ author: data.get('author'), body: data.get('body') }),
+				});
+				if (!response.ok) throw new Error(`HTTP ${response.status}`);
+				form.reset();
+				message.textContent = translate('已提交，审核后会显示。', 'Submitted. It will appear after moderation.');
+			} catch {
+				message.textContent = translate('提交失败，请稍后再试。', 'Could not post. Please try again later.');
+			} finally {
+				submit.disabled = false;
+			}
+		});
+
+		window.addEventListener('languagechange', () => {
+			updateStatus();
+			renderComments();
+		});
+		updateStatus();
+		loadComments();
+	}
+</script>

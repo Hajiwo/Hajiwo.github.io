@@ -1,0 +1,166 @@
+---
+import BaseHead from '../../components/BaseHead.astro';
+import Comments from '../../components/Comments.astro';
+import Footer from '../../components/Footer.astro';
+import Header from '../../components/Header.astro';
+import { SITE_TITLE } from '../../consts';
+
+const configuredApi = import.meta.env.PUBLIC_API_BASE_URL || (import.meta.env.DEV ? 'http://127.0.0.1:8000/api/v1' : '');
+const apiBase = configuredApi.replace(/\/$/, '');
+---
+
+<!doctype html>
+<html lang="zh-CN">
+	<head>
+		<BaseHead title={`文章 · ${SITE_TITLE}`} description="Blog article" />
+	</head>
+	<body>
+		<Header />
+		<main id="main" class="dynamic-article-page" data-api-base={apiBase}>
+			<div class="dynamic-article-state" data-article-state role="status">
+				<span class="loading-mark" aria-hidden="true"></span>
+				<span data-i18n-zh="正在从后端读取文章…" data-i18n-en="Loading article from the backend…">正在从后端读取文章…</span>
+			</div>
+			<div class="dynamic-article-shell" data-article-content hidden>
+				<a class="article-back" href="/"><span data-i18n-zh="← 返回文章列表" data-i18n-en="← Back to articles">← 返回文章列表</span></a>
+				<header class="dynamic-article-header">
+					<span class="tag" data-article-series><i></i><span></span></span>
+					<h1 data-article-title></h1>
+					<p data-article-description></p>
+					<time data-article-date></time>
+				</header>
+				<article class="prose dynamic-article-body" data-article-body></article>
+				<Comments />
+			</div>
+		</main>
+		<Footer />
+	</body>
+</html>
+
+<script>
+	import DOMPurify from 'dompurify';
+	import { marked } from 'marked';
+
+	type ArticleDetail = {
+		title: string;
+		title_en: string;
+		slug: string;
+		description: string;
+		description_en: string;
+		series: string | null;
+		series_name: string | null;
+		series_name_en: string | null;
+		published_at: string;
+		updated_at: string;
+		body: string;
+		body_en: string;
+	};
+
+	const page = document.querySelector<HTMLElement>('.dynamic-article-page')!;
+	const state = page.querySelector<HTMLElement>('[data-article-state]')!;
+	const content = page.querySelector<HTMLElement>('[data-article-content]')!;
+	const slug = new URLSearchParams(window.location.search).get('slug') || '';
+	const apiBase = (page.dataset.apiBase || '').replace(/\/$/, '');
+	const english = () => document.documentElement.dataset.language === 'en';
+	const seriesInEnglish = (name: string) => ({
+		'学习笔记': 'Study Notes',
+		'知乎': 'Zhihu Essays',
+	}[name] || name);
+
+	function normalizeMarkdown(source: string) {
+		return source
+			.replace(/\r\n?/g, '\n')
+			.replace(/\[\s*\n+([\s\S]*?)\n+\]\((https?:\/\/[^)\s]+)\)/g, (_match, label: string, url: string) => (
+				`[${label.replace(/\s+/g, ' ').trim()}](${url})`
+			));
+	}
+
+	function renderMarkdown(source: string) {
+		const html = marked.parse(normalizeMarkdown(source), {
+			async: false,
+			breaks: true,
+			gfm: true,
+		}) as string;
+		return DOMPurify.sanitize(html, {
+			USE_PROFILES: { html: true },
+			FORBID_TAGS: ['script', 'style', 'iframe', 'object', 'embed'],
+			FORBID_ATTR: ['style'],
+		});
+	}
+
+	function enhanceRenderedContent(body: HTMLElement) {
+		body.querySelectorAll<HTMLAnchorElement>('a[href]').forEach((link) => {
+			const url = new URL(link.href, window.location.href);
+			if (url.origin !== window.location.origin) {
+				link.target = '_blank';
+				link.rel = 'noopener noreferrer';
+			}
+		});
+		body.querySelectorAll<HTMLImageElement>('img').forEach((image) => {
+			image.loading = 'lazy';
+			image.decoding = 'async';
+			image.referrerPolicy = 'no-referrer';
+			if (!image.alt) image.alt = english() ? 'Article image' : '文章图片';
+		});
+	}
+
+	function showError(zh: string, en: string) {
+		state.classList.add('is-error');
+		state.replaceChildren();
+		const heading = document.createElement('h1');
+		heading.textContent = english() ? 'Article unavailable' : '暂时无法读取文章';
+		const copy = document.createElement('p');
+		copy.textContent = english() ? en : zh;
+		const back = document.createElement('a');
+		back.href = '/';
+		back.textContent = english() ? '← Back to articles' : '← 返回文章列表';
+		state.append(heading, copy, back);
+	}
+
+	function renderArticle(article: ArticleDetail) {
+		const seriesName = article.series_name || article.series || (english() ? 'Uncategorized' : '未分类');
+		const title = english() ? article.title_en || article.title : article.title;
+		const description = english() ? article.description_en || article.description : article.description;
+		const markdown = english() ? article.body_en || article.body : article.body;
+		page.querySelector<HTMLElement>('[data-article-title]')!.textContent = title;
+		page.querySelector<HTMLElement>('[data-article-description]')!.textContent = description;
+		const series = page.querySelector<HTMLElement>('[data-article-series]')!;
+		const seriesLabel = series.querySelector<HTMLElement>('span')!;
+		seriesLabel.dataset.i18nZh = seriesName;
+		seriesLabel.dataset.i18nEn = article.series_name_en || seriesInEnglish(seriesName);
+		seriesLabel.textContent = english() ? seriesLabel.dataset.i18nEn : seriesName;
+		const date = page.querySelector<HTMLTimeElement>('[data-article-date]')!;
+		date.dateTime = article.published_at;
+		date.dataset.date = article.published_at;
+		date.textContent = new Intl.DateTimeFormat(english() ? 'en-US' : 'zh-CN', {
+			year: 'numeric', month: english() ? 'short' : 'long', day: 'numeric', timeZone: 'UTC',
+		}).format(new Date(article.published_at));
+		const body = page.querySelector<HTMLElement>('[data-article-body]')!;
+		body.innerHTML = renderMarkdown(markdown);
+		enhanceRenderedContent(body);
+		document.title = `${title} · Jundong's Blog`;
+		state.hidden = true;
+		content.hidden = false;
+	}
+
+	async function loadArticle() {
+		if (!slug) {
+			showError('文章地址缺少 slug 参数。', 'The article URL is missing its slug.');
+			return;
+		}
+		if (!apiBase) {
+			showError('尚未配置后端 API 地址。', 'The backend API has not been configured.');
+			return;
+		}
+		try {
+			const response = await fetch(`${apiBase}/articles/${encodeURIComponent(slug)}/`, { headers: { Accept: 'application/json' } });
+			if (!response.ok) throw new Error(`HTTP ${response.status}`);
+			renderArticle(await response.json());
+		} catch {
+			showError('请确认 Django 服务正在运行，且文章已经发布。', 'Check that Django is running and the article is published.');
+		}
+	}
+
+	window.addEventListener('languagechange', () => window.location.reload());
+	loadArticle();
+</script>

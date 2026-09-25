@@ -1,0 +1,8 @@
+{% extends "admin/base.html" %}
+{% load static %}
+{% block title %}{{ title }} · 博客管理{% endblock %}
+{% block extrastyle %}{{ block.super }}<link rel="stylesheet" href="{% static 'blog/admin.css' %}">{% endblock %}
+{% block branding %}<div id="site-name"><a href="{% url 'admin:index' %}"><span aria-hidden="true">✳</span> Jundong’s Blog <small>内容管理</small></a></div>{% endblock %}
+{% block nav-global %}<a class="visit-blog" href="https://hajiwo.github.io/" target="_blank" rel="noopener">查看博客 ↗</a>{% endblock %}
+{% block dark-mode-vars %}{% endblock %}
+{% block responsive %}{{ block.super }}{% endblock %}

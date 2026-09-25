@@ -2,12 +2,50 @@
 import { SITE_TITLE } from '../consts';
 const about = Astro.url.pathname.startsWith('/about');
 ---
-<a class="skip-link" href="#main">跳至正文</a>
+<a class="skip-link" href="#main" data-i18n-zh="跳至正文" data-i18n-en="Skip to content">跳至正文</a>
 <header class="site-header">
   <a class="brand" href="/"><span class="brand-mark" aria-hidden="true">✳</span>{SITE_TITLE}</a>
-  <nav aria-label="主导航">
-    <a href="/" aria-current={!about ? 'page' : undefined}>▤ <span>文章</span></a>
-    <a href="/about/" aria-current={about ? 'page' : undefined}>♙ <span>关于</span></a>
+  <nav aria-label="主导航" data-i18n-aria-label-zh="主导航" data-i18n-aria-label-en="Main navigation">
+    <a href="/" aria-current={!about ? 'page' : undefined}>▤ <span data-i18n-zh="文章" data-i18n-en="Articles">文章</span></a>
+    <a href="/about/" aria-current={about ? 'page' : undefined}>♙ <span data-i18n-zh="关于" data-i18n-en="About">关于</span></a>
     <a href="https://github.com/Hajiwo" target="_blank" rel="noopener noreferrer">GitHub ↗</a>
+    <button id="language-toggle" class="language-toggle" type="button" aria-label="Switch to English">EN</button>
   </nav>
 </header>
+<script>
+	function applyLanguage(language: 'zh' | 'en', persist = true) {
+		document.documentElement.dataset.language = language;
+		document.documentElement.lang = language === 'zh' ? 'zh-CN' : 'en';
+		document.querySelectorAll<HTMLElement>('[data-i18n-zh][data-i18n-en]').forEach((element) => {
+			element.textContent = element.dataset[language === 'zh' ? 'i18nZh' : 'i18nEn'] || '';
+		});
+		document.querySelectorAll<HTMLElement>('[data-i18n-placeholder-zh][data-i18n-placeholder-en]').forEach((element) => {
+			element.setAttribute('placeholder', element.dataset[language === 'zh' ? 'i18nPlaceholderZh' : 'i18nPlaceholderEn'] || '');
+		});
+		document.querySelectorAll<HTMLElement>('[data-i18n-aria-label-zh][data-i18n-aria-label-en]').forEach((element) => {
+			element.setAttribute('aria-label', element.dataset[language === 'zh' ? 'i18nAriaLabelZh' : 'i18nAriaLabelEn'] || '');
+		});
+		document.querySelectorAll<HTMLTimeElement>('time[data-date]').forEach((element) => {
+			const date = new Date(element.dataset.date || '');
+			if (!Number.isNaN(date.valueOf())) {
+				element.textContent = new Intl.DateTimeFormat(language === 'zh' ? 'zh-CN' : 'en-US', {
+					year: 'numeric', month: language === 'zh' ? 'long' : 'short', day: 'numeric', timeZone: 'UTC',
+				}).format(date);
+			}
+		});
+		const toggle = document.querySelector<HTMLButtonElement>('#language-toggle');
+		if (toggle) {
+			toggle.textContent = language === 'zh' ? 'EN' : '中文';
+			toggle.setAttribute('aria-label', language === 'zh' ? 'Switch to English' : '切换到中文');
+			toggle.title = language === 'zh' ? 'Switch to English' : '切换到中文';
+		}
+		if (persist) localStorage.setItem('site-language', language);
+		window.dispatchEvent(new CustomEvent('languagechange', { detail: { language } }));
+	}
+
+	const initial = document.documentElement.dataset.language === 'en' ? 'en' : 'zh';
+	applyLanguage(initial, false);
+	document.querySelector('#language-toggle')?.addEventListener('click', () => {
+		applyLanguage(document.documentElement.dataset.language === 'zh' ? 'en' : 'zh');
+	});
+</script>

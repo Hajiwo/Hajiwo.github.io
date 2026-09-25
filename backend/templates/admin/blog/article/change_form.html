@@ -1,0 +1,39 @@
+{% extends "admin/change_form.html" %}
+
+{% block content_title %}
+<div class="article-editor-heading">
+  <p class="eyebrow">ARTICLE WORKSPACE</p>
+  <h1>{% if original %}编辑文章{% else %}创建新文章{% endif %}</h1>
+  <p>{% if original %}修改内容后保存，或直接切换发布状态。{% else %}先写成草稿，准备好后再发布。{% endif %}</p>
+</div>
+{% endblock %}
+
+{% block after_field_sets %}
+{{ block.super }}
+<section id="markdown-preview-panel-zh" class="markdown-preview-panel" hidden>
+  <header>
+    <div><strong>中文实时预览</strong><small>安全的 Markdown 近似预览</small></div>
+    <span id="article-counts-zh">0 字符</span>
+  </header>
+  <article id="markdown-preview-zh" class="markdown-preview"><p class="preview-empty">中文正文预览会显示在这里。</p></article>
+</section>
+<section id="markdown-preview-panel-en" class="markdown-preview-panel" hidden>
+  <header>
+    <div><strong>English preview</strong><small>Safe Markdown approximation</small></div>
+    <span id="article-counts-en">0 characters</span>
+  </header>
+  <article id="markdown-preview-en" class="markdown-preview"><p class="preview-empty">The English body preview appears here.</p></article>
+</section>
+{% endblock %}
+
+{% block submit_buttons_bottom %}
+{{ block.super }}
+{% if original and has_change_permission %}
+<div class="article-workflow-actions">
+  <span>快捷工作流</span>
+  <button type="submit" name="_draft" class="button secondary">保存为草稿</button>
+  <button type="submit" name="_duplicate" class="button secondary">保存并复制</button>
+  <button type="submit" name="_publish" class="button publish">保存并立即发布</button>
+</div>
+{% endif %}
+{% endblock %}
