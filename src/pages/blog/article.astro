@@ -62,6 +62,7 @@ const apiBase = configuredApi.replace(/\/$/, '');
 	const slug = new URLSearchParams(window.location.search).get('slug') || '';
 	const apiBase = (page.dataset.apiBase || '').replace(/\/$/, '');
 	const english = () => document.documentElement.dataset.language === 'en';
+	let articleLoadInProgress = false;
 	const seriesInEnglish = (name: string) => ({
 		'学习笔记': 'Study Notes',
 		'知乎': 'Zhihu Essays',
@@ -105,6 +106,8 @@ const apiBase = configuredApi.replace(/\/$/, '');
 	}
 
 	function showError(zh: string, en: string) {
+		content.hidden = true;
+		state.hidden = false;
 		state.classList.add('is-error');
 		state.replaceChildren();
 		const heading = document.createElement('h1');
@@ -140,10 +143,12 @@ const apiBase = configuredApi.replace(/\/$/, '');
 		enhanceRenderedContent(body);
 		document.title = `${title} · Jundong's Blog`;
 		state.hidden = true;
+		state.classList.remove('is-error');
 		content.hidden = false;
 	}
 
 	async function loadArticle() {
+		if (articleLoadInProgress) return;
 		if (!slug) {
 			showError('文章地址缺少 slug 参数。', 'The article URL is missing its slug.');
 			return;
@@ -152,15 +157,26 @@ const apiBase = configuredApi.replace(/\/$/, '');
 			showError('尚未配置后端 API 地址。', 'The backend API has not been configured.');
 			return;
 		}
+		articleLoadInProgress = true;
 		try {
-			const response = await fetch(`${apiBase}/articles/${encodeURIComponent(slug)}/`, { headers: { Accept: 'application/json' } });
+			const response = await fetch(`${apiBase}/articles/${encodeURIComponent(slug)}/?_=${Date.now()}`, {
+				cache: 'no-store',
+				headers: { Accept: 'application/json' },
+			});
 			if (!response.ok) throw new Error(`HTTP ${response.status}`);
 			renderArticle(await response.json());
 		} catch {
 			showError('请确认 Django 服务正在运行，且文章已经发布。', 'Check that Django is running and the article is published.');
+		} finally {
+			articleLoadInProgress = false;
 		}
 	}
 
-	window.addEventListener('languagechange', () => window.location.reload());
+	window.addEventListener('languagechange', loadArticle);
+	window.addEventListener('focus', loadArticle);
+	document.addEventListener('visibilitychange', () => {
+		if (document.visibilityState === 'visible') loadArticle();
+	});
+	window.setInterval(loadArticle, 20000);
 	loadArticle();
 </script>

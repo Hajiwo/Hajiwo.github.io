@@ -1,98 +1,45 @@
 ---
-import { getCollection } from 'astro:content';
-
-const posts = (await getCollection('blog')).sort((a, b) => +b.data.pubDate - +a.data.pubDate);
-const series = [...new Set(posts.map((post) => post.data.series))];
-const colors = ['#81c784', '#e57373', '#64b5f6', '#f06292'];
-const seriesInEnglish = (name: string) => ({
-	'学习笔记': 'Study Notes',
-	'知乎': 'Zhihu Essays',
-}[name] || name);
-const date = (value: Date) => new Intl.DateTimeFormat('zh-CN', {
-	year: 'numeric', month: 'long', day: 'numeric', timeZone: 'UTC',
-}).format(value);
 const configuredApi = import.meta.env.PUBLIC_API_BASE_URL || (import.meta.env.DEV ? 'http://127.0.0.1:8000/api/v1' : '');
 const apiBase = configuredApi.replace(/\/$/, '');
 ---
 
 <main id="main" class="archive" data-api-base={apiBase}>
-	<section class="intro">
-		<p class="eyebrow">JUNDONG CHEN / DIGITAL GARDEN</p>
-		<h1><span data-i18n-zh="全部文章" data-i18n-en="All Articles">全部文章</span><span class="heading-dot">.</span></h1>
-		<p>
-			<span data-i18n-zh="关于 AI、编程与学习的思考和记录。" data-i18n-en="Notes on AI, programming, and learning.">关于 AI、编程与学习的思考和记录。</span>
-			<br class="mobile-break" />
-			<span data-i18n-zh="在实践中探索，在文字中沉淀。" data-i18n-en="Explore through practice, reflect through writing.">在实践中探索，在文字中沉淀。</span>
-		</p>
-	</section>
-
 	<section aria-labelledby="series-heading" class="series-section">
-		<div class="section-heading">
-			<h2 id="series-heading">▦ <span data-i18n-zh="系列" data-i18n-en="Series">系列</span></h2>
-			<span data-i18n-zh="循着一个主题，慢慢深入" data-i18n-en="Follow one subject and go deeper">循着一个主题，慢慢深入</span>
-		</div>
-		<div class="series-grid">
-			{series.map((name, index) => (
-				<button type="button" class="series-card" data-series={name} aria-pressed="false" style={`--series-color:${colors[index % colors.length]}`}>
-					<span class="card-icon" aria-hidden="true">{['▤', '✎', '◎', '↗'][index % 4]}</span>
-					<span class="tag"><i></i><span data-i18n-zh="专题系列" data-i18n-en="Collection">专题系列</span></span>
-					<h3 data-i18n-zh={name} data-i18n-en={seriesInEnglish(name)}>{name}</h3>
-					<p
-						data-i18n-zh={name === '学习笔记' ? '收集值得反复学习的课程与资源，记录计算机科学和 AI 的探索路径。' : `围绕「${name}」的文章与实践记录。`}
-						data-i18n-en={name === '学习笔记' ? 'Courses and resources worth revisiting, with notes from exploring computer science and AI.' : `Articles and experiments about ${name}.`}
-					>
-						{name === '学习笔记' ? '收集值得反复学习的课程与资源，记录计算机科学和 AI 的探索路径。' : `围绕「${name}」的文章与实践记录。`}
-					</p>
-					<span class="card-bottom">
-						<span class="series-count" data-count={posts.filter((post) => post.data.series === name).length}>{posts.filter((post) => post.data.series === name).length} 篇文章</span>
-						<span>↗</span>
-					</span>
-				</button>
-			))}
-			<div class="writing-note">
-				<span aria-hidden="true">✎</span>
-				<p data-i18n-zh="学习，实践，记录。" data-i18n-en="Learn. Build. Write.">学习，实践，记录。</p>
-				<small data-i18n-zh="让每一次探索，都留下线索。" data-i18n-en="Leave a trail for every exploration.">让每一次探索，都留下线索。</small>
+		<div class="series-header">
+			<div class="series-heading-left">
+				<svg class="series-heading-icon" width="18" height="18" viewBox="0 0 20 20" fill="none" aria-hidden="true">
+					<rect x="2" y="2" width="6.5" height="6.5" rx="1.5" fill="#b59a55" stroke="#b59a55" stroke-width="1" />
+					<rect x="11.5" y="2" width="6.5" height="6.5" rx="1.5" stroke="#77756d" stroke-width="1.3" />
+					<rect x="2" y="11.5" width="6.5" height="6.5" rx="1.5" stroke="#77756d" stroke-width="1.3" />
+					<rect x="11.5" y="11.5" width="6.5" height="6.5" rx="1.5" stroke="#77756d" stroke-width="1.3" />
+				</svg>
+				<h2 id="series-heading"><span data-i18n-zh="系列" data-i18n-en="Series">系列</span></h2>
 			</div>
 		</div>
+		<div class="series-divider"></div>
+		<div class="series-grid"></div>
 	</section>
 
 	<section class="articles-section" aria-labelledby="articles-heading">
-		<div class="section-heading">
-			<h2 id="articles-heading" data-i18n-zh="文章索引" data-i18n-en="Article Index">文章索引</h2>
-			<div class="article-index-status">
-				<span id="article-sync-state" aria-live="polite"></span>
-				<span id="result-count" role="status" data-count={posts.length}>共 {posts.length} 篇</span>
-			</div>
+		<div class="article-index-status" hidden>
+			<span id="article-sync-state" aria-live="polite"></span>
+			<span id="result-count" role="status" data-count="0">共 0 篇</span>
 		</div>
-		<div class="filters" aria-label="按系列筛选" data-i18n-aria-label-zh="按系列筛选" data-i18n-aria-label-en="Filter by series">
-			<button class="filter" data-filter="" aria-pressed="true"><span data-filter-label data-i18n-zh="全部" data-i18n-en="All">全部</span> · <span data-filter-count>{posts.length}</span></button>
-			{series.map((name, index) => (
-				<button class="filter" data-filter={name} aria-pressed="false" style={`--series-color:${colors[index % colors.length]}`}>
-					<i></i><span data-filter-label data-i18n-zh={name} data-i18n-en={seriesInEnglish(name)}>{name}</span> · <span data-filter-count>{posts.filter((post) => post.data.series === name).length}</span>
-				</button>
-			))}
-		</div>
+
 		<div class="search-box">
-			<span aria-hidden="true">⌕</span>
+			<span class="search-icon" aria-hidden="true">
+				<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+					<circle cx="11" cy="11" r="7" />
+					<line x1="21" y1="21" x2="16" y2="16" />
+				</svg>
+			</span>
 			<label class="sr-only" for="article-search" data-i18n-zh="搜索文章" data-i18n-en="Search articles">搜索文章</label>
-			<input id="article-search" type="search" placeholder="搜索标题、内容简介…" data-i18n-placeholder-zh="搜索标题、内容简介…" data-i18n-placeholder-en="Search titles and descriptions…" autocomplete="off" />
+			<input id="article-search" type="search" placeholder="搜索标题..." data-i18n-placeholder-zh="搜索标题..." data-i18n-placeholder-en="Search titles..." autocomplete="off" />
 			<kbd>/</kbd>
 		</div>
-		<ul class="article-list">
-			{posts.map((post) => (
-				<li data-article data-slug={post.id} data-series={post.data.series} data-published-at={post.data.pubDate.toISOString()} data-search={`${post.data.title} ${post.data.description} ${post.data.series} ${seriesInEnglish(post.data.series)}`.toLowerCase()}>
-					<a class="article-link" href={`/blog/${post.id}/`}>
-						<div><h3>{post.data.title}</h3><p>{post.data.description}</p></div>
-						<div class="article-meta">
-							<span class="tag" style={`--series-color:${colors[series.indexOf(post.data.series) % colors.length]}`}><i></i><span data-i18n-zh={post.data.series} data-i18n-en={seriesInEnglish(post.data.series)}>{post.data.series}</span></span>
-							<time datetime={post.data.pubDate.toISOString()} data-date={post.data.pubDate.toISOString()}>{date(post.data.pubDate)}</time>
-							<span aria-hidden="true">↗</span>
-						</div>
-					</a>
-				</li>
-			))}
-		</ul>
+
+		<ul class="article-list"></ul>
+
 		<div id="empty-state" hidden>
 			<h3 data-i18n-zh="还没有找到相关文章" data-i18n-en="No matching articles">还没有找到相关文章</h3>
 			<p data-i18n-zh="换个关键词，或试试其他系列。" data-i18n-en="Try another keyword or series.">换个关键词，或试试其他系列。</p>
@@ -113,6 +60,7 @@ const apiBase = configuredApi.replace(/\/$/, '');
 		series_name_en: string | null;
 		published_at: string;
 		updated_at: string;
+		reading_minutes?: number;
 	};
 	type SeriesSummary = {
 		name: string;
@@ -123,189 +71,256 @@ const apiBase = configuredApi.replace(/\/$/, '');
 		article_count: number;
 	};
 
+	const FEATURED_METADATA: Record<string, {
+		nameEn: string;
+		tagZh: string;
+		tagEn: string;
+		subtitleZh: string;
+		subtitleEn: string;
+		descZh: string;
+		descEn: string;
+		color: string;
+		iconSvg: string;
+	}> = {
+		'One Poem Suffices': {
+			nameEn: 'One Poem Suffices',
+			tagZh: '深度文章',
+			tagEn: 'Deep Dive',
+			subtitleZh: '一篇就够了',
+			subtitleEn: 'One post is enough',
+			descZh: '每篇深入一个主题，力求一篇讲透。围绕 Agent Engineering：Context Engineering、Multi-Agent、MCP、Skills。',
+			descEn: 'Deep dives into Agent Engineering: Context Engineering, Multi-Agent, MCP, Skills.',
+			color: '#b59a55',
+			iconSvg: `<svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M7 16l3 5 10-3-3-5-10 3z" fill="#fff" stroke="#173653" stroke-width="1.2" stroke-linejoin="round" /><path d="M16 19l1.5-1.5" stroke="#173653" stroke-width="1" /><path d="M18 3c-3 1-5 4-5 8l-2 4 4-2c4 0 7-2 8-5-2-1-3-3-5-5z" fill="#b59a55" stroke="#173653" stroke-width="1.2" stroke-linejoin="round" /><path d="M18 3l-7 12" stroke="#173653" stroke-width="1.1" /></svg>`,
+		},
+		'Thinking in Context': {
+			nameEn: 'Thinking in Context',
+			tagZh: '随笔',
+			tagEn: 'Essays',
+			subtitleZh: '以上下文为核心的随笔',
+			subtitleEn: 'Essays centered on context',
+			descZh: '以上下文为核心视角，分析前沿 AI 系统的工程实践与设计哲学。',
+			descEn: 'Analyzing engineering practices and design philosophies of cutting-edge AI systems through the lens of context.',
+			color: '#8fb7d4',
+			iconSvg: `<svg width="24" height="24" viewBox="0 0 24 24" fill="none"><rect x="3" y="4" width="18" height="16" rx="4" stroke="#173653" stroke-width="1.5" /><rect x="6.5" y="7.5" width="11" height="9" rx="2.5" stroke="#173653" stroke-width="1.3" /><circle cx="12" cy="12" r="1.6" fill="#8fb7d4" /></svg>`,
+		},
+		'Zen of Harness': {
+			nameEn: 'Zen of Harness',
+			tagZh: '实践记录',
+			tagEn: 'Practice',
+			subtitleZh: 'Harness 工程实战',
+			subtitleEn: 'Harness engineering in practice',
+			descZh: '曾经是氛围编程之禅。当 AI Coding 的本质变成设计约束让 Agent 干活，记录 Harness Engineering 的实战心得。',
+			descEn: 'From vibe coding to design constraints: practical insights from Harness Engineering.',
+			color: '#5f86a6',
+			iconSvg: `<svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M19 8a8.5 8.5 0 1 0 1 5" stroke="#173653" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" /><rect x="10.5" y="10.5" width="3.2" height="3.2" rx="0.5" fill="#5f86a6" /></svg>`,
+		},
+		'Scaling 一下': {
+			nameEn: 'Scaling Up',
+			tagZh: '随笔',
+			tagEn: 'Essays',
+			subtitleZh: '碎碎念',
+			subtitleEn: 'Thoughts & notes',
+			descZh: '随笔式的思考笔记，关于 AI、杠杆与个人成长的一些不成熟的想法。',
+			descEn: 'Reflective notes on AI, leverage, and personal growth.',
+			color: '#c1a966',
+			iconSvg: `<svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M4 19h4v-4h4v-4h4v-4h3" stroke="#173653" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" /><circle cx="17.5" cy="4.5" r="2" fill="#c1a966" stroke="#173653" stroke-width="1.2" /></svg>`,
+		},
+	};
+
 	const archive = document.querySelector<HTMLElement>('.archive')!;
 	const input = document.querySelector<HTMLInputElement>('#article-search')!;
-	const filterContainer = document.querySelector<HTMLElement>('.filters')!;
 	const articleList = document.querySelector<HTMLUListElement>('.article-list')!;
 	const seriesGrid = document.querySelector<HTMLElement>('.series-grid')!;
-	const writingNote = seriesGrid.querySelector<HTMLElement>('.writing-note');
 	const syncState = document.querySelector<HTMLElement>('#article-sync-state')!;
+	const emptyState = document.querySelector<HTMLElement>('#empty-state')!;
+	const emptyTitle = emptyState.querySelector<HTMLElement>('h3')!;
+	const emptyDescription = emptyState.querySelector<HTMLElement>('p')!;
+	const resetButton = emptyState.querySelector<HTMLButtonElement>('#reset-search')!;
 	let selected = '';
+	let syncInProgress = false;
+	let backendUnavailable = false;
 
 	const isEnglish = () => document.documentElement.dataset.language === 'en';
 	const rows = () => [...document.querySelectorAll<HTMLElement>('[data-article]')];
-	const filters = () => [...document.querySelectorAll<HTMLButtonElement>('[data-filter]')];
 	const cards = () => [...document.querySelectorAll<HTMLButtonElement>('button[data-series]')];
-	const seriesInEnglish = (name: string) => ({
+
+	const seriesInEnglish = (name: string) => FEATURED_METADATA[name]?.nameEn || ({
 		'学习笔记': 'Study Notes',
 		'知乎': 'Zhihu Essays',
 	}[name] || name);
-	const defaultSeriesDescriptionInEnglish = (name: string) => ({
-		'学习笔记': 'Courses and resources worth revisiting, with notes from exploring computer science and AI.',
-		'知乎': 'Essays originally published on Zhihu, collected here for easier reading.',
-	}[name] || `Articles and experiments about ${seriesInEnglish(name)}.`);
-	const seriesDescriptionInChinese = (series: SeriesSummary) => {
-		if (series.name === '知乎') return '收录发布于知乎的文章，在这里继续整理与沉淀。';
-		return series.description || `围绕「${series.name}」的文章与实践记录。`;
-	};
+
 	const colorFor = (name: string) => {
-		const palette = ['#81c784', '#e57373', '#64b5f6', '#f06292'];
+		if (FEATURED_METADATA[name]) return FEATURED_METADATA[name].color;
+		const palette = ['#8fb7d4', '#b59a55', '#5f86a6', '#c1a966'];
 		const value = [...name].reduce((sum, character) => sum + (character.codePointAt(0) || 0), 0);
 		return palette[value % palette.length];
 	};
 
 	function formatDate(value: string) {
-		return new Intl.DateTimeFormat(isEnglish() ? 'en-US' : 'zh-CN', {
-			year: 'numeric', month: isEnglish() ? 'short' : 'long', day: 'numeric', timeZone: 'UTC',
-		}).format(new Date(value));
+		const dateObj = new Date(value);
+		if (Number.isNaN(dateObj.valueOf())) return value;
+		if (isEnglish()) {
+			return new Intl.DateTimeFormat('en-US', {
+				year: 'numeric', month: 'short', day: 'numeric', timeZone: 'UTC',
+			}).format(dateObj);
+		}
+		const y = dateObj.getUTCFullYear();
+		const m = dateObj.getUTCMonth() + 1;
+		const d = dateObj.getUTCDate();
+		return `${y} 年 ${m} 月 ${d} 日`;
 	}
 
-	function ensureFilter(seriesName: string, seriesNameEn = seriesInEnglish(seriesName)) {
-		if (filters().some((button) => button.dataset.filter === seriesName)) return;
-		const button = document.createElement('button');
-		button.type = 'button';
-		button.className = 'filter';
-		button.dataset.filter = seriesName;
-		button.setAttribute('aria-pressed', 'false');
-		button.style.setProperty('--series-color', colorFor(seriesName));
-		const dot = document.createElement('i');
-		const label = document.createElement('span');
-		label.dataset.filterLabel = '';
-		label.dataset.i18nZh = seriesName;
-		label.dataset.i18nEn = seriesNameEn;
-		label.textContent = isEnglish() ? seriesNameEn : seriesName;
-		const separator = document.createTextNode(' · ');
-		const count = document.createElement('span');
-		count.dataset.filterCount = '';
-		count.textContent = '0';
-		button.append(dot, label, separator, count);
-		filterContainer.append(button);
+	function formatReadingTime(minutes: number) {
+		return isEnglish() ? `~${minutes} min` : `约 ${minutes} 分钟`;
+	}
+
+	function updateEmptyCopy() {
+		if (backendUnavailable) {
+			emptyTitle.textContent = isEnglish() ? 'Backend unavailable' : '后端暂时不可用';
+			emptyDescription.textContent = isEnglish() ? 'Please try again in a moment.' : '请稍后刷新页面重试。';
+			resetButton.hidden = true;
+			return;
+		}
+		emptyTitle.textContent = isEnglish() ? 'No matching articles' : '还没有找到相关文章';
+		emptyDescription.textContent = isEnglish() ? 'Try another keyword or series.' : '换个关键词，或试试其他系列。';
+		resetButton.hidden = false;
 	}
 
 	function ensureSeriesCard(series: SeriesSummary) {
-		const nameEn = series.name_en || seriesInEnglish(series.name);
-		ensureFilter(series.name, nameEn);
+		const meta = FEATURED_METADATA[series.name];
+		const nameEn = series.name_en || (meta ? meta.nameEn : seriesInEnglish(series.name));
 		let card = cards().find((item) => item.dataset.series === series.name);
 		if (!card) {
 			card = document.createElement('button');
 			card.type = 'button';
 			card.className = 'series-card';
 			card.dataset.series = series.name;
+			card.dataset.backendSeries = 'true';
 			card.setAttribute('aria-pressed', 'false');
 			card.style.setProperty('--series-color', colorFor(series.name));
 
 			const icon = document.createElement('span');
 			icon.className = 'card-icon';
 			icon.setAttribute('aria-hidden', 'true');
-			icon.textContent = ['▤', '✎', '◎', '↗'][cards().length % 4];
+			icon.innerHTML = meta?.iconSvg || `<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="4" y="4" width="16" height="16" rx="2" /><path d="M8 9h8M8 13h6M8 17h4" /></svg>`;
+
 			const tag = document.createElement('span');
-			tag.className = 'tag';
+			tag.className = 'card-tag';
 			const dot = document.createElement('i');
 			const tagLabel = document.createElement('span');
-			tagLabel.dataset.i18nZh = '专题系列';
-			tagLabel.dataset.i18nEn = 'Collection';
-			tagLabel.textContent = isEnglish() ? 'Collection' : '专题系列';
+			const tagZh = meta?.tagZh || '专题系列';
+			const tagEn = meta?.tagEn || 'Collection';
+			tagLabel.dataset.i18nZh = tagZh;
+			tagLabel.dataset.i18nEn = tagEn;
+			tagLabel.textContent = isEnglish() ? tagEn : tagZh;
 			tag.append(dot, tagLabel);
+
 			const title = document.createElement('h3');
-			const description = document.createElement('p');
+
+			const desc = document.createElement('p');
+			desc.className = 'card-desc';
+
 			const bottom = document.createElement('span');
 			bottom.className = 'card-bottom';
 			const count = document.createElement('span');
 			count.className = 'series-count';
-			const arrow = document.createElement('span');
-			arrow.textContent = '↗';
-			bottom.append(count, arrow);
-			card.append(icon, tag, title, description, bottom);
-			seriesGrid.insertBefore(card, writingNote);
+			bottom.append(count);
+
+			card.append(icon, tag, title, desc, bottom);
+			seriesGrid.append(card);
 		}
 
+		card.style.setProperty('--series-color', colorFor(series.name));
 		const title = card.querySelector<HTMLElement>('h3')!;
 		title.dataset.i18nZh = series.name;
 		title.dataset.i18nEn = nameEn;
 		title.textContent = isEnglish() ? nameEn : series.name;
-		const description = card.querySelector<HTMLElement>('p')!;
-		description.dataset.i18nZh = seriesDescriptionInChinese(series);
-		description.dataset.i18nEn = series.description_en || defaultSeriesDescriptionInEnglish(series.name);
-		description.textContent = isEnglish() ? description.dataset.i18nEn : description.dataset.i18nZh;
+		const desc = card.querySelector<HTMLElement>('.card-desc')!;
+		const descZh = series.description || meta?.descZh || `围绕「${series.name}」的文章与实践记录。`;
+		const descEn = series.description_en || meta?.descEn || `Articles and experiments about ${nameEn}.`;
+		desc.dataset.i18nZh = descZh;
+		desc.dataset.i18nEn = descEn;
+		desc.textContent = isEnglish() ? descEn : descZh;
 		const count = card.querySelector<HTMLElement>('.series-count')!;
-		count.dataset.count = String(series.article_count || 0);
+		const currentCount = series.article_count;
+		count.dataset.count = String(currentCount);
 		count.textContent = isEnglish()
-			? `${series.article_count || 0} article${series.article_count === 1 ? '' : 's'}`
-			: `${series.article_count || 0} 篇文章`;
-	}
-
-	function createTag(seriesName: string, seriesNameEn = seriesInEnglish(seriesName)) {
-		const tag = document.createElement('span');
-		tag.className = 'tag';
-		tag.style.setProperty('--series-color', colorFor(seriesName));
-		const dot = document.createElement('i');
-		const label = document.createElement('span');
-		label.dataset.i18nZh = seriesName;
-		label.dataset.i18nEn = seriesNameEn;
-		label.textContent = isEnglish() ? seriesNameEn : seriesName;
-		tag.append(dot, label);
-		return tag;
+			? `${currentCount} article${currentCount === 1 ? '' : 's'}`
+			: `${currentCount} 篇`;
 	}
 
 	function upsertArticle(article: ArticleSummary) {
 		const seriesName = article.series_name || article.series || (isEnglish() ? 'Uncategorized' : '未分类');
 		const seriesNameEn = article.series_name_en || seriesInEnglish(seriesName);
 		const titleEn = article.title_en || article.title;
-		const descriptionEn = article.description_en || article.description;
-		ensureFilter(seriesName, seriesNameEn);
+
 		let row = rows().find((item) => item.dataset.slug === article.slug);
 		if (!row) {
 			row = document.createElement('li');
 			row.dataset.article = '';
+			row.dataset.backendArticle = 'true';
 			articleList.append(row);
 		}
 		row.dataset.slug = article.slug;
 		row.dataset.series = seriesName;
 		row.dataset.publishedAt = article.published_at;
-		row.dataset.search = `${article.title} ${titleEn} ${article.description} ${descriptionEn} ${seriesName} ${seriesNameEn}`.toLowerCase();
+		row.dataset.search = `${article.title} ${titleEn} ${seriesName} ${seriesNameEn}`.toLowerCase();
 		row.replaceChildren();
 
 		const link = document.createElement('a');
 		link.className = 'article-link';
 		link.href = `/blog/article/?slug=${encodeURIComponent(article.slug)}`;
-		const copy = document.createElement('div');
+
 		const title = document.createElement('h3');
+		title.className = 'article-title';
 		title.dataset.i18nZh = article.title;
 		title.dataset.i18nEn = titleEn;
 		title.textContent = isEnglish() ? titleEn : article.title;
-		const description = document.createElement('p');
-		description.dataset.i18nZh = article.description;
-		description.dataset.i18nEn = descriptionEn;
-		description.textContent = isEnglish() ? descriptionEn : article.description;
-		copy.append(title, description);
+
 		const meta = document.createElement('div');
 		meta.className = 'article-meta';
+
+		const tag = document.createElement('span');
+		tag.className = 'article-tag';
+		tag.style.setProperty('--series-color', colorFor(seriesName));
+		const dot = document.createElement('i');
+		const tagLabel = document.createElement('span');
+		tagLabel.dataset.i18nZh = seriesName;
+		tagLabel.dataset.i18nEn = seriesNameEn;
+		tagLabel.textContent = isEnglish() ? seriesNameEn : seriesName;
+		tag.append(dot, tagLabel);
+
+		const minutes = article.reading_minutes || Math.max(1, Math.round((article.description || '').length / 20)) || 5;
+		const readingSpan = document.createElement('span');
+		readingSpan.className = 'reading-time';
+		readingSpan.dataset.minutes = String(minutes);
+		readingSpan.textContent = formatReadingTime(minutes);
+
+		const metaDot = document.createElement('span');
+		metaDot.className = 'meta-dot';
+		metaDot.textContent = '·';
+
 		const time = document.createElement('time');
 		time.dateTime = article.published_at;
 		time.dataset.date = article.published_at;
 		time.textContent = formatDate(article.published_at);
-		const arrow = document.createElement('span');
-		arrow.setAttribute('aria-hidden', 'true');
-		arrow.textContent = '↗';
-		meta.append(createTag(seriesName, seriesNameEn), time, arrow);
-		link.append(copy, meta);
+
+		meta.append(tag, readingSpan, metaDot, time);
+		link.append(title, meta);
 		row.append(link);
 	}
 
 	function updateCounts() {
 		const counts = new Map<string, number>();
 		rows().forEach((row) => counts.set(row.dataset.series || '', (counts.get(row.dataset.series || '') || 0) + 1));
-		filters().forEach((button) => {
-			const count = button.dataset.filter ? counts.get(button.dataset.filter) || 0 : rows().length;
-			const output = button.querySelector<HTMLElement>('[data-filter-count]');
-			if (output) output.textContent = String(count);
-		});
 		cards().forEach((card) => {
+			const seriesName = card.dataset.series || '';
 			const output = card.querySelector<HTMLElement>('.series-count');
 			if (!output) return;
-			const count = counts.get(card.dataset.series || '') || 0;
+			const count = counts.get(seriesName) || parseInt(output.dataset.count || '0', 10) || 0;
 			output.dataset.count = String(count);
-			output.textContent = isEnglish() ? `${count} article${count === 1 ? '' : 's'}` : `${count} 篇文章`;
+			output.textContent = isEnglish() ? `${count} article${count === 1 ? '' : 's'}` : `${count} 篇`;
 		});
 	}
 
@@ -317,13 +332,19 @@ const apiBase = configuredApi.replace(/\/$/, '');
 			if (!row.hidden) visible += 1;
 			const time = row.querySelector<HTMLTimeElement>('time[data-date]');
 			if (time?.dataset.date) time.textContent = formatDate(time.dataset.date);
+			const reading = row.querySelector<HTMLElement>('.reading-time');
+			if (reading?.dataset.minutes) {
+				reading.textContent = formatReadingTime(parseInt(reading.dataset.minutes, 10));
+			}
 		});
-		filters().forEach((button) => button.setAttribute('aria-pressed', String(button.dataset.filter === selected)));
 		cards().forEach((button) => button.setAttribute('aria-pressed', String(button.dataset.series === selected)));
-		const resultCount = document.querySelector<HTMLElement>('#result-count')!;
-		resultCount.dataset.count = String(visible);
-		resultCount.textContent = isEnglish() ? `${visible} article${visible === 1 ? '' : 's'}` : `共 ${visible} 篇`;
-		document.querySelector<HTMLElement>('#empty-state')!.hidden = visible > 0;
+		const resultCount = document.querySelector<HTMLElement>('#result-count');
+		if (resultCount) {
+			resultCount.dataset.count = String(visible);
+			resultCount.textContent = isEnglish() ? `${visible} article${visible === 1 ? '' : 's'}` : `共 ${visible} 篇`;
+		}
+		emptyState.hidden = visible > 0;
+		updateEmptyCopy();
 		updateCounts();
 	}
 
@@ -332,7 +353,10 @@ const apiBase = configuredApi.replace(/\/$/, '');
 		const items: T[] = [];
 		let pageCount = 0;
 		while (next && pageCount < 100) {
-			const response = await fetch(next, { headers: { Accept: 'application/json' } });
+			const response = await fetch(next, {
+				cache: 'no-store',
+				headers: { Accept: 'application/json' },
+			});
 			if (!response.ok) throw new Error(`HTTP ${response.status}`);
 			const payload = await response.json();
 			if (Array.isArray(payload)) {
@@ -347,18 +371,25 @@ const apiBase = configuredApi.replace(/\/$/, '');
 		return items;
 	}
 
-	async function fetchBackendContent() {
+	async function fetchBackendContent(quiet = false) {
 		const apiBase = (archive.dataset.apiBase || '').replace(/\/$/, '');
 		if (!apiBase) {
-			syncState.hidden = true;
+			if (syncState) syncState.hidden = true;
+			backendUnavailable = true;
+			update();
 			return;
 		}
-		syncState.textContent = isEnglish() ? 'Syncing…' : '正在同步…';
+		if (syncInProgress) return;
+		syncInProgress = true;
+		if (syncState && !quiet) syncState.textContent = isEnglish() ? 'Syncing…' : '正在同步…';
 		try {
+			const refresh = Date.now();
 			const [articles, backendSeries] = await Promise.all([
-				fetchAllPages<ArticleSummary>(`${apiBase}/articles/`),
-				fetchAllPages<SeriesSummary>(`${apiBase}/series/`),
+				fetchAllPages<ArticleSummary>(`${apiBase}/articles/?_=${refresh}`),
+				fetchAllPages<SeriesSummary>(`${apiBase}/series/?_=${refresh}`),
 			]);
+			articleList.replaceChildren();
+			seriesGrid.replaceChildren();
 			backendSeries.forEach(ensureSeriesCard);
 			const knownSeries = new Set(backendSeries.map((item) => item.name));
 			articles.forEach((article) => {
@@ -375,47 +406,63 @@ const apiBase = configuredApi.replace(/\/$/, '');
 					knownSeries.add(name);
 				}
 			});
+			if (selected && !knownSeries.has(selected)) selected = '';
 			articles.forEach(upsertArticle);
 			articleList.append(...rows().sort((left, right) => Date.parse(right.dataset.publishedAt || '') - Date.parse(left.dataset.publishedAt || '')));
-			syncState.dataset.state = 'ready';
-			syncState.textContent = isEnglish() ? '● Backend synced' : '● 已同步后端';
+			if (syncState) {
+				syncState.dataset.state = 'ready';
+				syncState.textContent = isEnglish() ? '● Backend synced' : '● 已同步后端';
+			}
+			backendUnavailable = false;
 			update();
 		} catch {
-			syncState.dataset.state = 'offline';
-			syncState.textContent = isEnglish() ? '○ Showing local articles' : '○ 显示本地文章';
+			if (syncState) {
+				syncState.dataset.state = 'offline';
+				syncState.textContent = isEnglish() ? '○ Backend unavailable' : '○ 后端暂时不可用';
+			}
+			backendUnavailable = true;
+			update();
+		} finally {
+			syncInProgress = false;
 		}
 	}
 
-	filterContainer.addEventListener('click', (event) => {
-		const button = (event.target as HTMLElement).closest<HTMLButtonElement>('[data-filter]');
-		if (!button) return;
-		selected = button.dataset.filter || '';
-		update();
-	});
 	seriesGrid.addEventListener('click', (event) => {
 		const button = (event.target as HTMLElement).closest<HTMLButtonElement>('button[data-series]');
 		if (!button) return;
 		selected = selected === button.dataset.series ? '' : button.dataset.series || '';
 		update();
 	});
+
 	input.addEventListener('input', update);
-	document.querySelector('#reset-search')!.addEventListener('click', () => {
+	document.querySelector('#reset-search')?.addEventListener('click', () => {
 		selected = '';
 		input.value = '';
 		update();
 		input.focus();
 	});
+
 	window.addEventListener('languagechange', () => {
-		if (syncState.dataset.state === 'ready') syncState.textContent = isEnglish() ? '● Backend synced' : '● 已同步后端';
-		if (syncState.dataset.state === 'offline') syncState.textContent = isEnglish() ? '○ Showing local articles' : '○ 显示本地文章';
+		if (syncState) {
+			if (syncState.dataset.state === 'ready') syncState.textContent = isEnglish() ? '● Backend synced' : '● 已同步后端';
+			if (syncState.dataset.state === 'offline') syncState.textContent = isEnglish() ? '○ Backend unavailable' : '○ 后端暂时不可用';
+		}
+		updateEmptyCopy();
 		update();
 	});
+
 	document.addEventListener('keydown', (event) => {
 		if (event.key === '/' && !event.metaKey && !event.ctrlKey && !event.altKey && !(event.target instanceof HTMLElement && (event.target.matches('input,textarea,select') || event.target.isContentEditable))) {
 			event.preventDefault();
 			input.focus();
 		}
 	});
+
 	update();
 	fetchBackendContent();
+	window.setInterval(() => fetchBackendContent(true), 20000);
+	window.addEventListener('focus', () => fetchBackendContent(true));
+	document.addEventListener('visibilitychange', () => {
+		if (document.visibilityState === 'visible') fetchBackendContent(true);
+	});
 </script>

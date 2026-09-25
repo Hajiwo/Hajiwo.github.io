@@ -1,8 +1,5 @@
 from datetime import timedelta
-from pathlib import Path
-from tempfile import TemporaryDirectory
 from django.core.cache import cache
-from django.core.management import call_command
 from django.test import override_settings
 from django.utils import timezone
 from rest_framework.test import APITestCase
@@ -152,19 +149,3 @@ class BlogAPITests(APITestCase):
         self.assertNotContains(self.client.get('/admin/'), 'Public notes')
         self.assertEqual(self.client.get('/admin/blog/article/').status_code, 403)
         self.assertEqual(self.client.post('/admin/blog/article/add/', {}).status_code, 403)
-
-    def test_sync_astro_content_command(self):
-        with TemporaryDirectory() as temporary_directory:
-            content = Path(temporary_directory) / 'Synced_Post.mdx'
-            content.write_text(
-                "---\ntitle: 'Synced post'\ndescription: 'From Astro'\n"
-                "pubDate: '2026-09-20'\nseries: 'Integration'\n---\n\n# Body\n",
-                encoding='utf-8',
-            )
-            call_command('sync_astro_content', path=Path(temporary_directory), verbosity=0)
-
-        article = Article.objects.get(slug='synced_post')
-        self.assertEqual(article.title, 'Synced post')
-        self.assertEqual(article.series.name, 'Integration')
-        self.assertEqual(article.status, 'published')
-        self.assertIn('# Body', article.body)

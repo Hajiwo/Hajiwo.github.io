@@ -3,8 +3,7 @@
 // all pages through the use of the <BaseHead /> component.
 import '../styles/global.css';
 import type { ImageMetadata } from 'astro';
-import FallbackImage from '../assets/blog-placeholder-1.jpg';
-import { SITE_TITLE } from '../consts';
+import Logo from '../img/logo.png';
 import { Font } from 'astro:assets';
 
 interface Props {
@@ -15,7 +14,7 @@ interface Props {
 
 const canonicalURL = new URL(Astro.url.pathname, Astro.site);
 
-const { title, description, image = FallbackImage } = Astro.props;
+const { title, description, image = Logo } = Astro.props;
 ---
 
 <!-- Global Metadata -->
@@ -29,15 +28,9 @@ const { title, description, image = FallbackImage } = Astro.props;
 		document.documentElement.lang = language === 'zh' ? 'zh-CN' : 'en';
 	})();
 </script>
-<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-<link rel="icon" href="/favicon.ico" />
+<link rel="icon" type="image/png" href={Logo.src} />
+<link rel="apple-touch-icon" href={Logo.src} />
 <link rel="sitemap" href="/sitemap-index.xml" />
-<link
-	rel="alternate"
-	type="application/rss+xml"
-	title={SITE_TITLE}
-	href={new URL('rss.xml', Astro.site)}
-/>
 <meta name="generator" content={Astro.generator} />
 
 <Font cssVariable="--font-atkinson" preload />
