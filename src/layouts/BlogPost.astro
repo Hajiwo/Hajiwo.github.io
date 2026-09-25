@@ -18,7 +18,7 @@ const { title, description, pubDate, updatedDate, heroImage } = Astro.props;
 			main {
 				width: calc(100% - 2em);
 				max-width: 100%;
-				margin: 0;
+				margin: auto;
 			}
 			.hero-image {
 				width: 100%;
@@ -65,7 +65,7 @@ const { title, description, pubDate, updatedDate, heroImage } = Astro.props;
 
 	<body>
 		<Header />
-		<main>
+		<main id="main">
 			<article>
 				<div class="hero-image">
 					{heroImage && <Image src={heroImage} alt="" />}

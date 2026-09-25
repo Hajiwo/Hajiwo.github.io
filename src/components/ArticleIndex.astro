@@ -1,0 +1,44 @@
+---
+import { getCollection } from 'astro:content';
+const posts = (await getCollection('blog')).sort((a,b) => +b.data.pubDate - +a.data.pubDate);
+const series = [...new Set(posts.map(p => p.data.series))];
+const colors = ['#81c784', '#e57373', '#64b5f6', '#f06292'];
+const date = (d: Date) => new Intl.DateTimeFormat('zh-CN', {year:'numeric', month:'long', day:'numeric', timeZone:'UTC'}).format(d);
+---
+<main id="main" class="archive">
+  <section class="intro"><p class="eyebrow">JUNDONG CHEN / DIGITAL GARDEN</p><h1>全部文章<span class="heading-dot">.</span></h1><p>关于 AI、编程与学习的思考和记录。<br class="mobile-break" /> 在实践中探索，在文字中沉淀。</p></section>
+  <section aria-labelledby="series-heading" class="series-section">
+    <div class="section-heading"><h2 id="series-heading">▦ 系列</h2><span>循着一个主题，慢慢深入</span></div>
+    <div class="series-grid">
+      {series.map((name,i) => <button type="button" class="series-card" data-series={name} aria-pressed="false" style={`--series-color:${colors[i % colors.length]}`}><span class="card-icon" aria-hidden="true">{['▤','✎','◎','↗'][i%4]}</span><span class="tag"><i></i>专题系列</span><h3>{name}</h3><p>{name === '学习笔记' ? '收集值得反复学习的课程与资源，记录计算机科学和 AI 的探索路径。' : `围绕「${name}」的文章与实践记录。`}</p><span class="card-bottom">{posts.filter(p => p.data.series === name).length} 篇文章 <span>↗</span></span></button>)}
+      <div class="writing-note"><span aria-hidden="true">✎</span><p>学习，实践，记录。</p><small>让每一次探索，都留下线索。</small></div>
+    </div>
+  </section>
+  <section class="articles-section" aria-labelledby="articles-heading">
+    <div class="section-heading"><h2 id="articles-heading">文章索引</h2><span id="result-count" role="status">共 {posts.length} 篇</span></div>
+    <div class="filters" aria-label="按系列筛选"><button class="filter" data-filter="" aria-pressed="true">全部 · {posts.length}</button>{series.map((s,i) => <button class="filter" data-filter={s} aria-pressed="false" style={`--series-color:${colors[i%colors.length]}`}><i></i>{s} · {posts.filter(p => p.data.series === s).length}</button>)}</div>
+    <div class="search-box"><span aria-hidden="true">⌕</span><label class="sr-only" for="article-search">搜索文章</label><input id="article-search" type="search" placeholder="搜索标题、内容简介…" autocomplete="off"/><kbd>/</kbd></div>
+    <ul class="article-list">{posts.map(post => <li data-article data-series={post.data.series} data-search={`${post.data.title} ${post.data.description} ${post.data.series}`.toLowerCase()}><a class="article-link" href={`/blog/${post.id}/`}><div><h3>{post.data.title}</h3><p>{post.data.description}</p></div><div class="article-meta"><span class="tag" style={`--series-color:${colors[series.indexOf(post.data.series)%colors.length]}`}><i></i>{post.data.series}</span><time datetime={post.data.pubDate.toISOString()}>{date(post.data.pubDate)}</time><span aria-hidden="true">↗</span></div></a></li>)}</ul>
+    <div id="empty-state" hidden><h3>还没有找到相关文章</h3><p>换个关键词，或试试其他系列。</p><button id="reset-search" type="button">清除筛选</button></div>
+  </section>
+</main>
+<script>
+const input = document.querySelector<HTMLInputElement>('#article-search')!;
+const filters = [...document.querySelectorAll<HTMLButtonElement>('[data-filter]')];
+const cards = [...document.querySelectorAll<HTMLButtonElement>('button[data-series]')];
+const rows = [...document.querySelectorAll<HTMLElement>('[data-article]')];
+let selected = '';
+function update() {
+ const query = input.value.trim().toLowerCase(); let count = 0;
+ rows.forEach(row => { row.hidden = !((!selected || row.dataset.series === selected) && (row.dataset.search || '').includes(query)); if (!row.hidden) count++; });
+ filters.forEach(b => b.setAttribute('aria-pressed', String(b.dataset.filter === selected)));
+ cards.forEach(b => b.setAttribute('aria-pressed', String(b.dataset.series === selected)));
+ document.querySelector('#result-count')!.textContent = `共 ${count} 篇`;
+ (document.querySelector('#empty-state') as HTMLElement).hidden = count > 0;
+}
+filters.forEach(b => b.addEventListener('click', () => { selected = b.dataset.filter || ''; update(); }));
+cards.forEach(b => b.addEventListener('click', () => { selected = selected === b.dataset.series ? '' : b.dataset.series || ''; update(); }));
+input.addEventListener('input', update);
+document.querySelector('#reset-search')!.addEventListener('click', () => { selected = ''; input.value = ''; update(); input.focus(); });
+document.addEventListener('keydown', e => { if(e.key === '/' && !e.metaKey && !e.ctrlKey && !e.altKey && !(e.target instanceof HTMLElement && (e.target.matches('input,textarea,select') || e.target.isContentEditable))) { e.preventDefault(); input.focus(); } });
+</script>
