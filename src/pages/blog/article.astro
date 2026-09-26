@@ -52,6 +52,7 @@ const apiBase = configuredApi.replace(/\/$/, '');
 		series_name_en: string | null;
 		published_at: string;
 		updated_at: string;
+		content_type: 'article' | 'project';
 		body: string;
 		body_en: string;
 	};
@@ -121,6 +122,14 @@ const apiBase = configuredApi.replace(/\/$/, '');
 	}
 
 	function renderArticle(article: ArticleDetail) {
+		const isProject = article.content_type === 'project';
+		const back = page.querySelector<HTMLAnchorElement>('.article-back')!;
+		back.href = isProject ? '/projects/' : '/';
+		back.querySelector<HTMLElement>('span')!.dataset.i18nZh = isProject ? '← 返回项目列表' : '← 返回文章列表';
+		back.querySelector<HTMLElement>('span')!.dataset.i18nEn = isProject ? '← Back to projects' : '← Back to articles';
+		back.querySelector<HTMLElement>('span')!.textContent = english() ? back.querySelector<HTMLElement>('span')!.dataset.i18nEn! : back.querySelector<HTMLElement>('span')!.dataset.i18nZh!;
+		document.querySelectorAll<HTMLElement>('[data-nav]').forEach((item) => item.removeAttribute('aria-current'));
+		document.querySelector<HTMLElement>(`[data-nav="${isProject ? 'projects' : 'articles'}"]`)?.setAttribute('aria-current', 'page');
 		const seriesName = article.series_name || article.series || (english() ? 'Uncategorized' : '未分类');
 		const title = english() ? article.title_en || article.title : article.title;
 		const description = english() ? article.description_en || article.description : article.description;

@@ -17,7 +17,8 @@ class ArticleAdminForm(forms.ModelForm):
             'description_en': 'English summary',
             'body': '中文正文',
             'body_en': 'English body',
-            'series': '文章系列',
+            'series': '所属系列',
+            'content_type': '内容类型',
             'status': '状态',
             'published_at': '发布时间',
         }

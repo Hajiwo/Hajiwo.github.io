@@ -1,9 +1,12 @@
 ---
 const configuredApi = import.meta.env.PUBLIC_API_BASE_URL || (import.meta.env.DEV ? 'http://127.0.0.1:8000/api/v1' : '');
 const apiBase = configuredApi.replace(/\/$/, '');
+interface Props { contentType?: 'article' | 'project'; }
+const { contentType = 'article' } = Astro.props;
+const isProjects = contentType === 'project';
 ---
 
-<main id="main" class="archive" data-api-base={apiBase}>
+<main id="main" class="archive" data-api-base={apiBase} data-content-type={contentType}>
 	<section aria-labelledby="series-heading" class="series-section">
 		<div class="series-header">
 			<div class="series-heading-left">
@@ -33,16 +36,16 @@ const apiBase = configuredApi.replace(/\/$/, '');
 					<line x1="21" y1="21" x2="16" y2="16" />
 				</svg>
 			</span>
-			<label class="sr-only" for="article-search" data-i18n-zh="搜索文章" data-i18n-en="Search articles">搜索文章</label>
-			<input id="article-search" type="search" placeholder="搜索标题..." data-i18n-placeholder-zh="搜索标题..." data-i18n-placeholder-en="Search titles..." autocomplete="off" />
+			<label class="sr-only" for="article-search" data-i18n-zh={isProjects ? '搜索项目' : '搜索文章'} data-i18n-en={isProjects ? 'Search projects' : 'Search articles'}>{isProjects ? '搜索项目' : '搜索文章'}</label>
+			<input id="article-search" type="search" placeholder={isProjects ? '搜索项目...' : '搜索标题...'} data-i18n-placeholder-zh={isProjects ? '搜索项目...' : '搜索标题...'} data-i18n-placeholder-en={isProjects ? 'Search projects...' : 'Search titles...'} autocomplete="off" />
 			<kbd>/</kbd>
 		</div>
 
 		<ul class="article-list"></ul>
 
 		<div id="empty-state" hidden>
-			<h3 data-i18n-zh="还没有找到相关文章" data-i18n-en="No matching articles">还没有找到相关文章</h3>
-			<p data-i18n-zh="换个关键词，或试试其他系列。" data-i18n-en="Try another keyword or series.">换个关键词，或试试其他系列。</p>
+			<h3 data-i18n-zh={isProjects ? '还没有找到相关项目' : '还没有找到相关文章'} data-i18n-en={isProjects ? 'No matching projects' : 'No matching articles'}>{isProjects ? '还没有找到相关项目' : '还没有找到相关文章'}</h3>
+			<p data-i18n-zh={isProjects ? '在后台发布项目报告后，它会显示在这里。' : '换个关键词，或试试其他系列。'} data-i18n-en={isProjects ? 'Project reports will appear here after publishing.' : 'Try another keyword or series.'}>{isProjects ? '在后台发布项目报告后，它会显示在这里。' : '换个关键词，或试试其他系列。'}</p>
 			<button id="reset-search" type="button" data-i18n-zh="清除筛选" data-i18n-en="Clear filters">清除筛选</button>
 		</div>
 	</section>
@@ -60,6 +63,7 @@ const apiBase = configuredApi.replace(/\/$/, '');
 		series_name_en: string | null;
 		published_at: string;
 		updated_at: string;
+		content_type: 'article' | 'project';
 		reading_minutes?: number;
 	};
 	type SeriesSummary = {
@@ -129,6 +133,7 @@ const apiBase = configuredApi.replace(/\/$/, '');
 	};
 
 	const archive = document.querySelector<HTMLElement>('.archive')!;
+	const contentType = archive.dataset.contentType === 'project' ? 'project' : 'article';
 	const input = document.querySelector<HTMLInputElement>('#article-search')!;
 	const articleList = document.querySelector<HTMLUListElement>('.article-list')!;
 	const seriesGrid = document.querySelector<HTMLElement>('.series-grid')!;
@@ -182,9 +187,13 @@ const apiBase = configuredApi.replace(/\/$/, '');
 			resetButton.hidden = true;
 			return;
 		}
-		emptyTitle.textContent = isEnglish() ? 'No matching articles' : '还没有找到相关文章';
-		emptyDescription.textContent = isEnglish() ? 'Try another keyword or series.' : '换个关键词，或试试其他系列。';
-		resetButton.hidden = false;
+		emptyTitle.textContent = isEnglish()
+			? (contentType === 'project' ? 'No matching projects' : 'No matching articles')
+			: (contentType === 'project' ? '还没有找到相关项目' : '还没有找到相关文章');
+		emptyDescription.textContent = isEnglish()
+			? (contentType === 'project' ? 'Project reports will appear here after publishing.' : 'Try another keyword or series.')
+			: (contentType === 'project' ? '在后台发布项目报告后，它会显示在这里。' : '换个关键词，或试试其他系列。');
+		resetButton.hidden = contentType === 'project' && rows().length === 0;
 	}
 
 	function ensureSeriesCard(series: SeriesSummary) {
@@ -341,7 +350,9 @@ const apiBase = configuredApi.replace(/\/$/, '');
 		const resultCount = document.querySelector<HTMLElement>('#result-count');
 		if (resultCount) {
 			resultCount.dataset.count = String(visible);
-			resultCount.textContent = isEnglish() ? `${visible} article${visible === 1 ? '' : 's'}` : `共 ${visible} 篇`;
+			resultCount.textContent = isEnglish()
+				? `${visible} ${contentType === 'project' ? 'project' : 'article'}${visible === 1 ? '' : 's'}`
+				: `共 ${visible} 篇`;
 		}
 		emptyState.hidden = visible > 0;
 		updateEmptyCopy();
@@ -385,8 +396,8 @@ const apiBase = configuredApi.replace(/\/$/, '');
 		try {
 			const refresh = Date.now();
 			const [articles, backendSeries] = await Promise.all([
-				fetchAllPages<ArticleSummary>(`${apiBase}/articles/?_=${refresh}`),
-				fetchAllPages<SeriesSummary>(`${apiBase}/series/?_=${refresh}`),
+				fetchAllPages<ArticleSummary>(`${apiBase}/articles/?content_type=${contentType}&_=${refresh}`),
+				fetchAllPages<SeriesSummary>(`${apiBase}/series/?content_type=${contentType}&_=${refresh}`),
 			]);
 			articleList.replaceChildren();
 			seriesGrid.replaceChildren();

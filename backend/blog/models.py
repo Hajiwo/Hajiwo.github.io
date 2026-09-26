@@ -27,6 +27,10 @@ class Article(models.Model):
         DRAFT = 'draft', '草稿'
         PUBLISHED = 'published', '已发布'
 
+    class ContentType(models.TextChoices):
+        ARTICLE = 'article', '文章'
+        PROJECT = 'project', '项目报告'
+
     title = models.CharField(max_length=200)
     title_en = models.CharField(max_length=200, blank=True)
     slug = models.SlugField(max_length=200, unique=True)
@@ -35,6 +39,7 @@ class Article(models.Model):
     body = models.TextField(help_text='Markdown 源文本；API 不执行 MDX 或 HTML。')
     body_en = models.TextField(blank=True, help_text='English Markdown source; MDX and raw HTML are not executed.')
     series = models.ForeignKey(Series, null=True, blank=True, on_delete=models.SET_NULL, related_name='articles')
+    content_type = models.CharField(max_length=12, choices=ContentType.choices, default=ContentType.ARTICLE)
     status = models.CharField(max_length=12, choices=Status.choices, default=Status.DRAFT)
     published_at = models.DateTimeField(default=timezone.now)
     updated_at = models.DateTimeField(auto_now=True)
@@ -42,7 +47,10 @@ class Article(models.Model):
 
     class Meta:
         ordering = ['-published_at', '-id']
-        indexes = [models.Index(fields=['status', 'published_at'])]
+        indexes = [
+            models.Index(fields=['status', 'published_at']),
+            models.Index(fields=['content_type', 'status', 'published_at']),
+        ]
         verbose_name = '文章'
         verbose_name_plural = '文章'
 

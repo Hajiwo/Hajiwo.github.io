@@ -22,7 +22,8 @@ class BlogAdminSite(AdminSite):
         context = dict(extra_context or {})
         if self.has_permission(request):
             context['metrics'] = {
-                'articles': Article.objects.count() if request.user.has_perm('blog.view_article') else None,
+                'articles': Article.objects.filter(content_type=Article.ContentType.ARTICLE).count() if request.user.has_perm('blog.view_article') else None,
+                'projects': Article.objects.filter(content_type=Article.ContentType.PROJECT).count() if request.user.has_perm('blog.view_article') else None,
                 'published': Article.objects.published().count() if request.user.has_perm('blog.view_article') else None,
                 'pending': Comment.objects.filter(approved=False).count() if request.user.has_perm('blog.view_comment') else None,
                 'series': Series.objects.count() if request.user.has_perm('blog.view_series') else None,
@@ -59,11 +60,11 @@ class ArticleAdmin(admin.ModelAdmin):
     form = ArticleAdminForm
     change_form_template = 'admin/blog/article/change_form.html'
     list_display = [
-        'title', 'status_badge', 'series', 'published_at', 'updated_at',
+        'title', 'content_type_badge', 'status_badge', 'series', 'published_at', 'updated_at',
         'translation_status', 'content_size', 'quick_actions',
     ]
     list_display_links = ['title']
-    list_filter = ['status', 'series', 'published_at', 'updated_at']
+    list_filter = ['content_type', 'status', 'series', 'published_at', 'updated_at']
     search_fields = ['title', 'title_en', 'slug', 'description', 'description_en', 'body', 'body_en']
     search_help_text = '搜索中英文标题、slug、简介或正文'
     prepopulated_fields = {'slug': ('title',)}
@@ -85,7 +86,7 @@ class ArticleAdmin(admin.ModelAdmin):
             'description': 'Published articles require a complete English title, summary, and Markdown body.',
         }),
         ('发布设置', {
-            'fields': ('slug', 'series', 'status', 'published_at', 'updated_at'),
+            'fields': ('content_type', 'slug', 'series', 'status', 'published_at', 'updated_at'),
             'description': '“已发布”且发布时间不晚于当前时间的文章会出现在公开 API。',
         }),
     )
@@ -96,6 +97,15 @@ class ArticleAdmin(admin.ModelAdmin):
 
     def get_queryset(self, request):
         return super().get_queryset(request).select_related('series')
+
+    @admin.display(description='内容类型', ordering='content_type')
+    def content_type_badge(self, obj):
+        css_class = 'published' if obj.content_type == Article.ContentType.PROJECT else 'draft'
+        return format_html(
+            '<span class="article-status article-status--{}">{}</span>',
+            css_class,
+            obj.get_content_type_display(),
+        )
 
     @admin.display(description='状态', ordering='status')
     def status_badge(self, obj):
@@ -199,6 +209,7 @@ class ArticleAdmin(admin.ModelAdmin):
             body=article.body,
             body_en=article.body_en,
             series=article.series,
+            content_type=article.content_type,
             status=Article.Status.DRAFT,
             published_at=timezone.now(),
         )

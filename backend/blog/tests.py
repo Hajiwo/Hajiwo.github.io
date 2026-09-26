@@ -29,16 +29,31 @@ class BlogAPITests(APITestCase):
         self.assertEqual(result['results'][0]['series_name'], '学习笔记')
         self.assertEqual(result['results'][0]['title_en'], 'Public notes')
         self.assertEqual(result['results'][0]['series_name_en'], 'Study Notes')
+        self.assertEqual(result['results'][0]['content_type'], 'article')
         for slug in ['draft', 'future', 'missing']:
             self.assertEqual(self.client.get(f'/api/v1/articles/{slug}/').status_code, 404)
         self.assertEqual(self.client.post('/api/v1/articles/', {}).status_code, 405)
         self.assertEqual(self.client.patch('/api/v1/articles/public/', {'title':'hacked'}).status_code, 405)
 
     def test_search_series_and_pagination(self):
+        project = Article.objects.create(
+            title='项目报告', title_en='Project report', slug='project-report',
+            description='项目总结', description_en='Project summary',
+            body='项目正文', body_en='Project body', series=self.series,
+            content_type=Article.ContentType.PROJECT, status=Article.Status.PUBLISHED,
+        )
         self.assertEqual(self.client.get('/api/v1/articles/?q=AI&series=notes').json()['count'], 1)
+        self.assertEqual(self.client.get('/api/v1/articles/?content_type=article').json()['count'], 1)
+        projects = self.client.get('/api/v1/articles/?content_type=project').json()
+        self.assertEqual(projects['count'], 1)
+        self.assertEqual(projects['results'][0]['slug'], project.slug)
+        self.assertEqual(self.client.get('/api/v1/articles/?content_type=invalid').json()['count'], 0)
+        project_series = self.client.get('/api/v1/series/?content_type=project').json()['results']
+        self.assertEqual(len(project_series), 1)
+        self.assertEqual(project_series[0]['article_count'], 1)
         self.assertEqual(self.client.get('/api/v1/articles/?q=secret').json()['count'], 0)
         self.assertEqual(self.client.get('/api/v1/articles/?series=missing').json()['count'], 0)
-        self.assertEqual(self.client.get('/api/v1/series/').json()['results'][0]['article_count'], 1)
+        self.assertEqual(self.client.get('/api/v1/series/').json()['results'][0]['article_count'], 2)
         self.assertEqual(self.client.get('/api/v1/articles/?page=999').status_code, 404)
         detail = self.client.get('/api/v1/articles/public/').json()
         self.assertEqual(detail['body'], '中文 Markdown')
@@ -81,9 +96,10 @@ class BlogAPITests(APITestCase):
         self.assertContains(add_page, '中文实时预览')
         self.assertContains(add_page, 'English preview')
         self.assertContains(add_page, 'English title')
+        self.assertContains(add_page, '项目报告')
         response = self.client.post('/admin/blog/article/add/', {
             'title': 'Admin draft', 'slug': 'admin-draft', 'description': 'Created in admin',
-            'body': '# Hello', 'series': self.series.pk, 'status': 'draft',
+            'body': '# Hello', 'series': self.series.pk, 'content_type': 'article', 'status': 'draft',
             'published_at_0': '2026-09-25', 'published_at_1': '12:00:00', '_save': 'Save',
         })
         self.assertEqual(response.status_code, 302)
@@ -97,7 +113,7 @@ class BlogAPITests(APITestCase):
 
         create_response = self.client.post('/admin/blog/article/add/', {
             'title': 'CRUD article', 'slug': 'crud-article', 'description': 'Created',
-            'body': '# First version', 'series': self.series.pk, 'status': 'draft',
+            'body': '# First version', 'series': self.series.pk, 'content_type': 'project', 'status': 'draft',
             'published_at_0': '2026-09-25', 'published_at_1': '12:00:00', '_save': 'Save',
         })
         self.assertEqual(create_response.status_code, 302)
@@ -112,7 +128,7 @@ class BlogAPITests(APITestCase):
 
         update_response = self.client.post(f'/admin/blog/article/{article.pk}/change/', {
             'title': 'CRUD article updated', 'slug': 'crud-article', 'description': 'Updated',
-            'body': '# Second version', 'series': self.series.pk, 'status': 'published',
+            'body': '# Second version', 'series': self.series.pk, 'content_type': 'project', 'status': 'published',
             'title_en': 'CRUD article in English', 'description_en': 'Updated in English',
             'body_en': '# English version',
             'published_at_0': '2026-09-25', 'published_at_1': '12:00:00', '_continue': 'Save',
@@ -120,12 +136,13 @@ class BlogAPITests(APITestCase):
         self.assertEqual(update_response.status_code, 302)
         article.refresh_from_db()
         self.assertEqual(article.title, 'CRUD article updated')
+        self.assertEqual(article.content_type, Article.ContentType.PROJECT)
         self.assertEqual(article.body, '# Second version')
         self.assertEqual(article.title_en, 'CRUD article in English')
 
         duplicate_response = self.client.post(f'/admin/blog/article/{article.pk}/change/', {
             'title': article.title, 'slug': article.slug, 'description': article.description,
-            'body': article.body, 'series': self.series.pk, 'status': article.status,
+            'body': article.body, 'series': self.series.pk, 'content_type': article.content_type, 'status': article.status,
             'title_en': article.title_en, 'description_en': article.description_en,
             'body_en': article.body_en,
             'published_at_0': '2026-09-25', 'published_at_1': '12:00:00', '_duplicate': 'Duplicate',
@@ -134,6 +151,7 @@ class BlogAPITests(APITestCase):
         duplicate = Article.objects.get(slug='crud-article-copy')
         self.assertEqual(duplicate.status, 'draft')
         self.assertEqual(duplicate.body_en, '# English version')
+        self.assertEqual(duplicate.content_type, Article.ContentType.PROJECT)
 
         delete_page = self.client.get(f'/admin/blog/article/{duplicate.pk}/delete/')
         self.assertContains(delete_page, '你确认想要删除')

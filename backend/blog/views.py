@@ -14,10 +14,19 @@ def health(request):
 
 class SeriesList(generics.ListAPIView):
     serializer_class = SeriesSerializer
+
     def get_queryset(self):
-        return Series.objects.annotate(article_count=Count('articles', filter=Q(
-            articles__status='published', articles__published_at__lte=timezone.now()
-        ))).order_by('order', 'name', 'id')
+        content_type = self.request.query_params.get('content_type')
+        article_filter = Q(
+            articles__status=Article.Status.PUBLISHED,
+            articles__published_at__lte=timezone.now(),
+        )
+        if content_type in Article.ContentType.values:
+            article_filter &= Q(articles__content_type=content_type)
+        queryset = Series.objects.annotate(article_count=Count('articles', filter=article_filter))
+        if content_type in Article.ContentType.values:
+            queryset = queryset.filter(article_count__gt=0)
+        return queryset.order_by('order', 'name', 'id')
 
 class ArticleList(generics.ListAPIView):
     serializer_class = ArticleSerializer
@@ -26,7 +35,14 @@ class ArticleList(generics.ListAPIView):
     def get_queryset(self):
         queryset = Article.objects.published().select_related('series')
         series = self.request.query_params.get('series')
-        return queryset.filter(series__slug=series) if series else queryset
+        content_type = self.request.query_params.get('content_type')
+        if series:
+            queryset = queryset.filter(series__slug=series)
+        if content_type in Article.ContentType.values:
+            queryset = queryset.filter(content_type=content_type)
+        elif content_type:
+            queryset = queryset.none()
+        return queryset
 
 class ArticleDetail(generics.RetrieveAPIView):
     serializer_class = ArticleDetailSerializer
