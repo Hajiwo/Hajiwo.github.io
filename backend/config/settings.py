@@ -83,3 +83,6 @@ EMAIL_USE_TLS = os.getenv('EMAIL_USE_TLS', 'true').lower() == 'true'
 EMAIL_USE_SSL = os.getenv('EMAIL_USE_SSL', 'false').lower() == 'true'
 EMAIL_TIMEOUT = 10
 DEFAULT_FROM_EMAIL = os.getenv('DEFAULT_FROM_EMAIL', EMAIL_HOST_USER or 'noreply@localhost')
+
+MAIL_DELIVERY_MODE = os.getenv('MAIL_DELIVERY_MODE', 'smtp')
+MAIL_WORKER_TOKEN = os.getenv('MAIL_WORKER_TOKEN', '')

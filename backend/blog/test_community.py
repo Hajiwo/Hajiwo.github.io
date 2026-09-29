@@ -214,3 +214,73 @@ class CommunityTests(APITestCase):
             response=self.client.post('/admin/blog/article/', {'action':'publish','_selected_action':[self.article.pk]})
         self.assertEqual(response.status_code,302)
         self.assertEqual(Notification.objects.filter(article=self.article).count(),2)
+
+
+@override_settings(SECURE_SSL_REDIRECT=False, SUBSCRIPTIONS_ENABLED=True, MAIL_DELIVERY_MODE='remote', MAIL_WORKER_TOKEN='worker-test-key-with-at-least-32-characters')
+class RemoteMailTests(APITestCase):
+    def setUp(self):
+        cache.clear()
+        self.worker_key = 'Bearer worker-test-key-with-at-least-32-characters'
+
+    def worker(self):
+        self.client.credentials(HTTP_AUTHORIZATION=self.worker_key)
+
+    def subscribe(self):
+        return self.client.post('/api/v1/subscriptions/', {'name':'Remote reader', 'email':'remote@example.com'})
+
+    def test_worker_requires_secret_and_rejects_get(self):
+        self.assertEqual(self.client.post('/api/v1/mail-worker/claim/', {}).status_code,403)
+        self.client.credentials(HTTP_AUTHORIZATION='Bearer wrong')
+        self.assertEqual(self.client.post('/api/v1/mail-worker/claim/', {}).status_code,403)
+        self.worker()
+        self.assertEqual(self.client.get('/api/v1/mail-worker/claim/').status_code,405)
+
+    def test_queued_verification_and_single_lease(self):
+        with patch('blog.community.send_mail') as smtp:
+            response=self.subscribe()
+            self.assertEqual(response.status_code,202)
+            self.assertEqual(response.json(),{'status':'verification_queued'})
+            smtp.assert_not_called()
+        self.worker()
+        claimed=self.client.post('/api/v1/mail-worker/claim/', {})
+        self.assertEqual(claimed['Cache-Control'],'no-store, private')
+        job=claimed.json()['jobs'][0]
+        self.assertEqual(job['kind'],'verification')
+        self.assertEqual(self.client.post('/api/v1/mail-worker/claim/',{}).json()['jobs'],[])
+        token=job['body'].split('#verify=')[1].split()[0]
+        receipt={key:job[key] for key in ['kind','id','lease']}
+        receipt['sent']=True
+        self.assertEqual(self.client.post('/api/v1/mail-worker/ack/',receipt,format='json').status_code,200)
+        login=SubscriberLogin.objects.get()
+        self.assertEqual(login.delivery_token,'')
+        self.assertIsNotNone(login.sent_at)
+        self.client.credentials()
+        self.assertEqual(self.client.post('/api/v1/subscriptions/verify/',{'token':token}).status_code,200)
+
+    def test_failed_delivery_retries_and_stale_ack_rejected(self):
+        self.subscribe();self.worker()
+        job=self.client.post('/api/v1/mail-worker/claim/',{}).json()['jobs'][0]
+        receipt={key:job[key] for key in ['kind','id','lease']};receipt['sent']=False
+        self.assertEqual(self.client.post('/api/v1/mail-worker/ack/',receipt,format='json').status_code,200)
+        self.assertEqual(self.client.post('/api/v1/mail-worker/claim/',{}).json()['jobs'],[])
+        SubscriberLogin.objects.update(next_attempt_at=timezone.now())
+        retried=self.client.post('/api/v1/mail-worker/claim/',{}).json()['jobs'][0]
+        self.assertNotEqual(job['lease'],retried['lease'])
+        receipt['sent']=True
+        self.assertEqual(self.client.post('/api/v1/mail-worker/ack/',receipt,format='json').status_code,409)
+
+    def test_notifications_recheck_visibility_and_preferences(self):
+        subscriber=Subscriber.objects.create(email='reader@example.com',name='Reader',active=True,verified_at=timezone.now())
+        article=Article.objects.create(title='A',slug='a',status='published')
+        collect_articles();subscriber.active=False;subscriber.save()
+        self.worker()
+        self.assertEqual(self.client.post('/api/v1/mail-worker/claim/',{}).json()['jobs'],[])
+        self.assertTrue(Notification.objects.get().cancelled)
+
+    def test_abandoned_claim_is_recovered(self):
+        self.subscribe();self.worker()
+        job=self.client.post('/api/v1/mail-worker/claim/',{}).json()['jobs'][0]
+        SubscriberLogin.objects.update(claimed_at=timezone.now()-timedelta(minutes=11))
+        retried=self.client.post('/api/v1/mail-worker/claim/',{}).json()['jobs'][0]
+        self.assertEqual(job['id'],retried['id'])
+        self.assertNotEqual(job['lease'],retried['lease'])

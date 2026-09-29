@@ -1,6 +1,8 @@
 from django.urls import path
-from . import views, community
+from . import views, community, mail_worker
 urlpatterns = [
+    path('mail-worker/claim/', mail_worker.claim),
+    path('mail-worker/ack/', mail_worker.acknowledge),
     path('subscriptions/', community.subscribe),
     path('subscriptions/verify/', community.verify),
     path('subscriptions/me/', community.subscription_me),

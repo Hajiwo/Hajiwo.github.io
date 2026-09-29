@@ -76,9 +76,13 @@ def subscribe(request):
     token = secrets.token_urlsafe(32)
     login = SubscriberLogin.objects.create(subscriber=subscriber, token_hash=digest(token),
         name=values['name'], language=values['language'], expires_at=timezone.now() + timedelta(minutes=30))
-    link = f'{settings.ARTICLES_SITE_URL}/subscribe/#verify={token}'
-    subject = '确认订阅 Articles / Confirm your Articles subscription'
-    body = f'点击链接验证邮箱并订阅（30 分钟内有效）：\nVerify your email and subscribe (valid for 30 minutes):\n{link}\n\n未申请请忽略。If you did not request this, ignore this email.'
+    from .notifications import verification_message
+    if settings.MAIL_DELIVERY_MODE == 'remote':
+        login.delivery_token = token
+        login.expires_at = timezone.now() + timedelta(hours=24)
+        login.save(update_fields=['delivery_token', 'expires_at'])
+        return Response({'status': 'verification_queued'}, status=202)
+    subject, body = verification_message(token)
     try:
         if send_mail(subject, body, settings.DEFAULT_FROM_EMAIL, [email]) != 1:
             raise RuntimeError('Mail delivery unavailable')
@@ -98,7 +102,7 @@ def verify(request):
     now = timezone.now()
     with transaction.atomic():
         login = SubscriberLogin.objects.filter(token_hash=digest(token), used_at__isnull=True, expires_at__gt=now).first()
-        if not login or not SubscriberLogin.objects.filter(pk=login.pk, used_at__isnull=True).update(used_at=now):
+        if not login or not SubscriberLogin.objects.filter(pk=login.pk, used_at__isnull=True).update(used_at=now, delivery_token=''):
             raise ValidationError('This link has expired or was already used. Request a new email.')
         subscriber = login.subscriber
         subscriber.name, subscriber.language = login.name, login.language

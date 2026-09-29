@@ -17,4 +17,4 @@ PythonAnywhere 使用 `backend/.env.example` 作为环境变量模板，并通�
 
 Articles 独立站包含即时评论、回复和 Markdown 讨论；Django 后台管理话题、回复、订阅读者及邮件队列。订阅通过一次性邮箱验证链接建立浏览器身份，邮箱不进入公开 API。通知覆盖新文章、讨论更新与回复，支持偏好设置和退订。
 
-邮件使用 Django SMTP（Gmail 应用专用密码填入服务器 `backend/.env`，不可提交）。配置完成后开启 `SUBSCRIPTIONS_ENABLED=true`。PythonAnywhere 需运行独立通知进程 `backend/.venv/bin/python backend/manage.py send_notifications --watch`；它每 15 秒检查已到发布时间的文章及通知队列，失败后重试。生产环境应由 always-on task 管理；也可定时运行不带 `--watch` 的命令，通知时效由任务频率决定。邮件在 SMTP 已接受但进程尚未记录成功时崩溃，重试可能重复投递。
+邮件由 GitHub Actions 定时领取 Django 队列，并通过 mail.de SMTP 发送；服务器与任务用独立密钥认证，邮箱密码保存在 GitHub Secrets。部署配置见 `backend/deploy/community.md`。

@@ -61,16 +61,12 @@ def deliver_pending(limit=100):
         if not Notification.objects.filter(eligible, pk=pk, sent_at__isnull=True).update(claimed_at=now, attempts=F('attempts') + 1):
             continue
         item = Notification.objects.select_related('subscriber', 'article', 'topic', 'comment', 'post').get(pk=pk)
-        subscriber = item.subscriber
-        visible = (not item.article_id or (item.article.status == 'published' and item.article.published_at <= now and item.article.content_type == 'article')) and (not item.topic_id or item.topic.visible) and (not item.comment_id or item.comment.approved) and (not item.post_id or item.post.visible)
-        if not visible or not subscriber.active or not subscriber.verified_at or not getattr(subscriber, item.kind):
+        payload = notification_message(item)
+        if not payload:
             Notification.objects.filter(pk=pk).update(cancelled=True, claimed_at=None)
             continue
-        labels = {'articles': ('新文章', 'New article'), 'discussions': ('讨论更新', 'Discussion update'), 'replies': ('你收到了回复', 'You received a reply')}
-        label = labels[item.kind][subscriber.language == 'en']
-        unsubscribe = f'{settings.ARTICLES_SITE_URL}/subscribe/#unsubscribe={subscriber.unsubscribe_token}'
-        subject = ' '.join(f'{label} · {item.title}'.splitlines())[:240]
-        body = f'{label}: {item.title}\n\n{settings.ARTICLES_SITE_URL}{item.path}\n\n退订 / Unsubscribe:\n{unsubscribe}'
+        subscriber = item.subscriber
+        subject, body = payload
         try:
             if EmailMessage(subject, body, settings.DEFAULT_FROM_EMAIL, [subscriber.email]).send() != 1:
                 raise RuntimeError('Email backend returned no delivery')
@@ -81,3 +77,23 @@ def deliver_pending(limit=100):
             Notification.objects.filter(pk=pk).update(claimed_at=None, last_error=type(exc).__name__,
                 next_attempt_at=timezone.now() + timedelta(minutes=min(60, 2 ** min(item.attempts, 6))))
     return sent
+
+
+def notification_message(item):
+    subscriber = item.subscriber
+    now = timezone.now()
+    visible = (not item.article_id or (item.article.status == 'published' and item.article.published_at <= now and item.article.content_type == 'article')) and (not item.topic_id or item.topic.visible) and (not item.comment_id or item.comment.approved) and (not item.post_id or item.post.visible)
+    if not visible or not subscriber.active or not subscriber.verified_at or not getattr(subscriber, item.kind):
+        return None
+    labels = {'articles': ('新文章', 'New article'), 'discussions': ('讨论更新', 'Discussion update'), 'replies': ('你收到了回复', 'You received a reply')}
+    label = labels[item.kind][subscriber.language == 'en']
+    unsubscribe = f'{settings.ARTICLES_SITE_URL}/subscribe/#unsubscribe={subscriber.unsubscribe_token}'
+    subject = ' '.join(f'{label} · {item.title}'.splitlines())[:240]
+    body = f'{label}: {item.title}\n\n{settings.ARTICLES_SITE_URL}{item.path}\n\n退订 / Unsubscribe:\n{unsubscribe}'
+    return subject, body
+
+
+def verification_message(token):
+    link = f'{settings.ARTICLES_SITE_URL}/subscribe/#verify={token}'
+    return ('确认订阅 Articles / Confirm your Articles subscription',
+            f'点击链接验证邮箱并订阅（30 分钟内有效）：\nVerify your email and subscribe (valid for 30 minutes):\n{link}\n\n未申请请忽略。If you did not request this, ignore this email.')

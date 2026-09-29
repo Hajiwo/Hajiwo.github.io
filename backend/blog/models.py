@@ -104,6 +104,13 @@ class SubscriberLogin(models.Model):
     language = models.CharField(max_length=2, default='zh')
     expires_at = models.DateTimeField()
     used_at = models.DateTimeField(null=True, blank=True)
+    delivery_token = models.CharField(max_length=100, blank=True)
+    sent_at = models.DateTimeField(null=True, blank=True)
+    claimed_at = models.DateTimeField(null=True, blank=True)
+    lease_token = models.UUIDField(null=True, blank=True)
+    attempts = models.PositiveIntegerField(default=0)
+    next_attempt_at = models.DateTimeField(default=timezone.now)
+    last_error = models.CharField(max_length=200, blank=True)
 
 
 class SubscriberSession(models.Model):
@@ -166,6 +173,7 @@ class Notification(models.Model):
     attempts = models.PositiveIntegerField(default=0)
     last_error = models.CharField(max_length=200, blank=True)
     cancelled = models.BooleanField(default=False)
+    lease_token = models.UUIDField(null=True, blank=True)
 
     class Meta:
         constraints = [models.UniqueConstraint(fields=['subscriber', 'event_key'], name='unique_notification_recipient_event')]
