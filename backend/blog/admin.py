@@ -9,7 +9,7 @@ from django.utils import timezone
 from django.utils.html import format_html
 
 from .forms import ArticleAdminForm
-from .models import Article, Comment, Series, Topic, DiscussionPost, Subscriber, Notification
+from .models import Article, Comment, Series, Topic, DiscussionPost, Subscriber, SubscriberLogin, Notification
 
 
 class BlogAdminSite(AdminSite):
@@ -257,6 +257,17 @@ class SubscriberAdmin(admin.ModelAdmin):
     search_fields = ['email', 'name']
     readonly_fields = ['email', 'verified_at', 'created_at']
     exclude = ['unsubscribe_token']
+
+    def has_add_permission(self, request):
+        return False
+
+
+@admin.register(SubscriberLogin, site=blog_admin)
+class SubscriberLoginAdmin(admin.ModelAdmin):
+    list_display = ['subscriber', 'name', 'sent_at', 'used_at', 'attempts', 'last_error', 'expires_at']
+    list_filter = ['sent_at', 'used_at', 'language']
+    search_fields = ['subscriber__email', 'subscriber__name', 'name']
+    readonly_fields = [field.name for field in SubscriberLogin._meta.fields]
 
     def has_add_permission(self, request):
         return False

@@ -1,6 +1,6 @@
 import time
 from django.core.management.base import BaseCommand
-from blog.notifications import collect_articles, deliver_pending
+from blog.notifications import collect_articles, deliver_pending, deliver_verifications
 
 
 class Command(BaseCommand):
@@ -12,8 +12,9 @@ class Command(BaseCommand):
     def handle(self, *args, **options):
         while True:
             collect_articles()
-            sent = deliver_pending()
-            self.stdout.write(f'Delivered {sent} notifications')
+            verifications = deliver_verifications()
+            notifications = deliver_pending()
+            self.stdout.write(f'Delivered {verifications} verification emails and {notifications} notifications')
             if not options['watch']:
                 return
             time.sleep(15)

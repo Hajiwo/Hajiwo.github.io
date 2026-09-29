@@ -1,4 +1,5 @@
 """Durable outbox: run send_notifications --watch to deliver and retry email."""
+import uuid
 from datetime import timedelta
 from urllib.parse import quote
 from django.conf import settings
@@ -6,7 +7,7 @@ from django.core.mail import EmailMessage
 from django.db import transaction
 from django.db.models import Q, F
 from django.utils import timezone
-from .models import Article, Subscriber, Notification, Topic
+from .models import Article, Subscriber, SubscriberLogin, Notification, Topic
 
 
 def recipients(kind):
@@ -48,6 +49,42 @@ def comment_created(comment):
     if target and target.pk != comment.subscriber_id and target.active and target.verified_at and target.replies:
         enqueue([target], f'comment:{comment.pk}', 'replies', comment.article.title,
                 f'/article/?slug={quote(comment.article.slug)}#comment-{comment.pk}', article=comment.article, comment=comment)
+
+
+def deliver_verifications(limit=20):
+    """Deliver queued verification links through the server SMTP connection."""
+    if not settings.SUBSCRIPTIONS_ENABLED or settings.MAIL_DELIVERY_MODE != 'smtp':
+        return 0
+    now = timezone.now()
+    eligible = Q(claimed_at__isnull=True) | Q(claimed_at__lt=now - timedelta(minutes=10))
+    SubscriberLogin.objects.filter(expires_at__lte=now).exclude(delivery_token='').update(delivery_token='')
+    ids = list(SubscriberLogin.objects.filter(
+        eligible, used_at__isnull=True, sent_at__isnull=True, expires_at__gt=now,
+        next_attempt_at__lte=now,
+    ).exclude(delivery_token='').values_list('pk', flat=True)[:limit])
+    sent = 0
+    for pk in ids:
+        lease = uuid.uuid4()
+        if not SubscriberLogin.objects.filter(
+            eligible, pk=pk, used_at__isnull=True, sent_at__isnull=True,
+        ).exclude(delivery_token='').update(claimed_at=now, lease_token=lease, attempts=F('attempts') + 1):
+            continue
+        login = SubscriberLogin.objects.select_related('subscriber').get(pk=pk)
+        subject, body = verification_message(login.delivery_token)
+        try:
+            if EmailMessage(subject, body, settings.DEFAULT_FROM_EMAIL, [login.subscriber.email]).send() != 1:
+                raise RuntimeError('Email backend returned no delivery')
+            updated = SubscriberLogin.objects.filter(pk=pk, lease_token=lease, sent_at__isnull=True).update(
+                sent_at=timezone.now(), expires_at=timezone.now() + timedelta(minutes=30),
+                delivery_token='', claimed_at=None, lease_token=None, last_error='',
+            )
+            sent += updated
+        except Exception as exc:
+            SubscriberLogin.objects.filter(pk=pk, lease_token=lease, sent_at__isnull=True).update(
+                claimed_at=None, lease_token=None, last_error=type(exc).__name__,
+                next_attempt_at=timezone.now() + timedelta(minutes=min(60, 2 ** min(login.attempts, 6))),
+            )
+    return sent
 
 
 def deliver_pending(limit=100):

@@ -8,7 +8,7 @@ import Conversation from '../../../components/Conversation.astro';
 <main id="main" class="community-page">
   <a class="article-back" href="/articles/discussion/" data-i18n-zh="← 返回讨论" data-i18n-en="← Back to discussion">← 返回讨论</a>
   <p role="status" data-topic-status></p>
-  <section data-topic-content hidden><h1 data-topic-title></h1><p class="topic-meta" data-topic-meta></p><article class="prose community-prose" data-topic-body></article><p data-topic-locked hidden data-i18n-zh="话题已关闭，暂不接受新回复。" data-i18n-en="This topic is closed to new replies.">话题已关闭，暂不接受新回复。</p>
+  <section class="discussion-detail" data-topic-content hidden><div class="topic-hero-card"><span class="topic-eyebrow" data-i18n-zh="讨论话题" data-i18n-en="Discussion topic">讨论话题</span><h1 data-topic-title></h1><p class="topic-meta" data-topic-meta></p><article class="prose community-prose" data-topic-body></article><p class="topic-locked-notice" data-topic-locked hidden data-i18n-zh="话题已关闭，暂不接受新回复。" data-i18n-en="This topic is closed to new replies.">话题已关闭，暂不接受新回复。</p></div>
   <Conversation kind="discussion" /></section>
 </main><Footer /></body></html>
 <script>

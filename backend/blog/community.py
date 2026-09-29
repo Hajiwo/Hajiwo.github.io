@@ -4,7 +4,6 @@ import secrets
 from datetime import timedelta
 from django.conf import settings
 from django.core.cache import cache
-from django.core.mail import send_mail
 from django.db import transaction
 from django.utils import timezone
 from rest_framework import generics, serializers, status
@@ -74,23 +73,17 @@ def subscribe(request):
         return Response({'detail': 'Please wait one minute before requesting another email.'}, status=429)
     subscriber, _ = Subscriber.objects.get_or_create(email=email, defaults={'name': values['name']})
     token = secrets.token_urlsafe(32)
-    login = SubscriberLogin.objects.create(subscriber=subscriber, token_hash=digest(token),
-        name=values['name'], language=values['language'], expires_at=timezone.now() + timedelta(minutes=30))
-    from .notifications import verification_message
-    if settings.MAIL_DELIVERY_MODE == 'remote':
-        login.delivery_token = token
-        login.expires_at = timezone.now() + timedelta(hours=24)
-        login.save(update_fields=['delivery_token', 'expires_at'])
-        return Response({'status': 'verification_queued'}, status=202)
-    subject, body = verification_message(token)
-    try:
-        if send_mail(subject, body, settings.DEFAULT_FROM_EMAIL, [email]) != 1:
-            raise RuntimeError('Mail delivery unavailable')
-    except Exception:
-        login.delete()
-        cache.delete(key)
-        return Response({'detail': 'Could not send verification email. Please try again later.'}, status=503)
-    return Response({'status': 'verification_sent'}, status=202)
+    now = timezone.now()
+    # A new request supersedes older unsent links, avoiding duplicate delivery
+    # when a reader retries after a temporary SMTP failure.
+    SubscriberLogin.objects.filter(subscriber=subscriber, used_at__isnull=True, sent_at__isnull=True).update(
+        delivery_token='', expires_at=now, claimed_at=None, lease_token=None,
+    )
+    SubscriberLogin.objects.create(
+        subscriber=subscriber, token_hash=digest(token), name=values['name'], language=values['language'],
+        expires_at=now + timedelta(hours=24), delivery_token=token,
+    )
+    return Response({'status': 'verification_queued'}, status=202)
 
 
 @api_view(['POST'])

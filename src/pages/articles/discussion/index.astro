@@ -7,7 +7,7 @@ import MarkdownEditor from '../../../components/MarkdownEditor.astro';
 <!doctype html><html lang="zh-CN"><head><BaseHead title="讨论 · Articles" description="分享想法，持续讨论" /></head><body><Header />
 <main id="main" class="community-page">
   <div class="community-heading"><div><h1 data-i18n-zh="讨论" data-i18n-en="Discussion">讨论</h1><p data-i18n-zh="一个话题，一段持续的对话。" data-i18n-en="A topic. A continuing conversation.">一个话题，一段持续的对话。</p></div><a href="#new-topic" class="primary-button" data-i18n-zh="发起话题" data-i18n-en="Start a topic">发起话题</a></div>
-  <p role="status" data-topics-status></p><div class="topic-list" data-topics></div>
+  <p role="status" class="community-status" data-topics-status></p><div class="topic-list" data-topics></div>
   <button type="button" class="quiet-button" data-topics-more hidden data-i18n-zh="加载更多" data-i18n-en="Load more">加载更多</button>
   <section id="new-topic" class="new-topic"><h2 data-i18n-zh="发起新话题" data-i18n-en="Start a new topic">发起新话题</h2>
   <form class="comment-form" data-topic-form>
@@ -33,9 +33,21 @@ function render() {
   if (!topics.length) { const empty = document.createElement('p'); empty.className = 'comments-placeholder'; empty.textContent = tr('还没有话题。分享第一个想法吧。', 'No topics yet. Share the first idea.'); list.append(empty); }
   for (const topic of topics) {
     const link = document.createElement('a'); link.className = 'topic-card'; link.href = `/articles/discussion/topic/?id=${topic.id}`;
+    const head = document.createElement('div'); head.className = 'topic-card-head';
+    const avatar = document.createElement('span'); avatar.className = 'topic-avatar'; avatar.setAttribute('aria-hidden', 'true'); avatar.textContent = topic.author.trim().slice(0, 1).toUpperCase() || '·';
+    const heading = document.createElement('div'); heading.className = 'topic-card-heading';
     const title = document.createElement('h2'); title.textContent = topic.title;
-    const meta = document.createElement('p'); meta.textContent = `${topic.author} · ${topic.post_count} ${tr('条回复', 'replies')} · ${formatDate(topic.updated_at)}${topic.locked ? tr(' · 已关闭', ' · Closed') : ''}`;
-    link.append(title, meta); list.append(link);
+    const author = document.createElement('p'); author.className = 'topic-card-author'; author.textContent = `${tr('由', 'By')} ${topic.author}`;
+    heading.append(title, author);
+    const arrow = document.createElement('span'); arrow.className = 'topic-card-arrow'; arrow.setAttribute('aria-hidden', 'true'); arrow.textContent = '↗';
+    head.append(avatar, heading, arrow);
+    const preview = document.createElement('p'); preview.className = 'topic-card-preview'; preview.textContent = topic.body.replace(/[`#>*_~\[\]()!-]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 120) || tr('打开话题参与讨论。', 'Open this topic to join the discussion.');
+    const meta = document.createElement('div'); meta.className = 'topic-card-meta';
+    const replies = document.createElement('span'); replies.textContent = `💬 ${topic.post_count} ${tr('条回复', topic.post_count === 1 ? 'reply' : 'replies')}`;
+    const date = document.createElement('span'); date.textContent = `◷ ${formatDate(topic.updated_at)}`;
+    meta.append(replies, date);
+    if (topic.locked) { const locked = document.createElement('span'); locked.className = 'topic-locked-badge'; locked.textContent = tr('已关闭', 'Closed'); meta.append(locked); }
+    link.append(head, preview, meta); list.append(link);
   }
 }
 async function load() {

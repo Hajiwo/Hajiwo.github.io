@@ -7,7 +7,7 @@ from django.utils import timezone
 from rest_framework.test import APITestCase
 from .models import Article, Comment, Subscriber, SubscriberLogin, SubscriberSession, Topic, DiscussionPost, Notification
 from .community import digest
-from .notifications import collect_articles, deliver_pending, topic_changed
+from .notifications import collect_articles, deliver_pending, deliver_verifications, topic_changed
 
 
 @override_settings(SECURE_SSL_REDIRECT=False, SUBSCRIPTIONS_ENABLED=True, EMAIL_BACKEND='django.core.mail.backends.locmem.EmailBackend')
@@ -57,8 +57,10 @@ class CommunityTests(APITestCase):
     def test_verification_one_use_and_case_insensitive_email(self):
         response = self.client.post('/api/v1/subscriptions/', {'email':'Reader@Example.com','name':'New name','language':'en'})
         self.assertEqual(response.status_code, 202)
+        self.assertEqual(response.json(), {'status': 'verification_queued'})
         self.assertEqual(Subscriber.objects.count(), 2)
         self.reader.refresh_from_db(); self.assertEqual(self.reader.name, 'Reader')
+        self.assertEqual(deliver_verifications(), 1)
         token = mail.outbox[-1].body.split('#verify=')[1].split()[0]
         verified = self.client.post('/api/v1/subscriptions/verify/', {'token':token})
         self.assertEqual(verified.status_code, 200)
@@ -72,11 +74,15 @@ class CommunityTests(APITestCase):
         self.assertIn(self.client.get('/api/v1/subscriptions/me/').status_code, [401,403])
 
     def test_unverified_and_expired_links_and_email_failure(self):
-        with patch('blog.community.send_mail', side_effect=RuntimeError('SMTP failure')):
-            self.assertEqual(self.client.post('/api/v1/subscriptions/', {'email':'new@example.com','name':'N'}).status_code, 503)
+        self.assertEqual(self.client.post('/api/v1/subscriptions/', {'email':'new@example.com','name':'N'}).status_code, 202)
+        with patch('blog.notifications.EmailMessage.send', side_effect=RuntimeError('SMTP failure')):
+            self.assertEqual(deliver_verifications(), 0)
         pending = Subscriber.objects.get(email='new@example.com')
         self.assertFalse(pending.active)
         self.assertIsNone(pending.verified_at)
+        queued = SubscriberLogin.objects.get()
+        self.assertEqual(queued.last_error, 'RuntimeError')
+        self.assertEqual(queued.attempts, 1)
         SubscriberLogin.objects.create(subscriber=pending, token_hash=digest('expired'), name='N', expires_at=timezone.now()-timedelta(seconds=1))
         self.assertEqual(self.client.post('/api/v1/subscriptions/verify/', {'token':'expired'}).status_code, 400)
         self.assertEqual(self.client.post('/api/v1/subscriptions/verify/', {'token':['bad']}, format='json').status_code, 400)
@@ -177,7 +183,7 @@ class CommunityTests(APITestCase):
     def test_admin_manages_community(self):
         from django.contrib.auth import get_user_model
         self.client.force_login(get_user_model().objects.create_superuser('owner',password='test-password'))
-        for model in ['topic','discussionpost','subscriber','notification']:
+        for model in ['topic','discussionpost','subscriber','subscriberlogin','notification']:
             self.assertEqual(self.client.get(f'/admin/blog/{model}/').status_code,200)
         topic=Topic.objects.create(title='A',author='A',body='hello')
         self.assertEqual(self.client.post(f'/admin/blog/topic/{topic.pk}/change/', {'title':'Edited','author':'Admin','body':'new','locked':'on','_save':'Save'}).status_code,302)
@@ -236,11 +242,10 @@ class RemoteMailTests(APITestCase):
         self.assertEqual(self.client.get('/api/v1/mail-worker/claim/').status_code,405)
 
     def test_queued_verification_and_single_lease(self):
-        with patch('blog.community.send_mail') as smtp:
-            response=self.subscribe()
-            self.assertEqual(response.status_code,202)
-            self.assertEqual(response.json(),{'status':'verification_queued'})
-            smtp.assert_not_called()
+        response=self.subscribe()
+        self.assertEqual(response.status_code,202)
+        self.assertEqual(response.json(),{'status':'verification_queued'})
+        self.assertEqual(len(mail.outbox),0)
         self.worker()
         claimed=self.client.post('/api/v1/mail-worker/claim/', {})
         self.assertEqual(claimed['Cache-Control'],'no-store, private')

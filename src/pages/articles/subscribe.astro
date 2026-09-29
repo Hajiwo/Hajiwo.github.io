@@ -66,7 +66,7 @@ signup.addEventListener('submit', async event => {
   try {
     const data = new FormData(signup);
     const result = await request('/subscriptions/', 'POST', {name: data.get('name'), email: data.get('email'), language: tr('zh', 'en')});
-    status.textContent = result.status === 'verification_queued' ? tr('验证邮件已排队，通常需要几分钟。收到后请在 30 分钟内打开链接；高峰时可能延迟。', 'Verification email queued. It usually takes a few minutes; busy periods may take longer. Open the link within 30 minutes of delivery.') : tr('验证邮件已发送。请打开邮箱中的链接（30 分钟内有效）。', 'Verification email sent. Open its link within 30 minutes.');
+    status.textContent = result.status === 'verification_queued' ? tr('正在发送验证邮件，通常一分钟内到达。请检查收件箱和垃圾邮件；链接在收到后 30 分钟内有效。', 'Your verification email is being sent and normally arrives within a minute. Check your inbox and spam; the link is valid for 30 minutes after delivery.') : tr('验证邮件已发送。请打开邮箱中的链接（30 分钟内有效）。', 'Verification email sent. Open its link within 30 minutes.');
   } catch (error) { status.textContent = (error as Error).message; } finally { submit.disabled = false; }
 });
 button.addEventListener('click', async () => {

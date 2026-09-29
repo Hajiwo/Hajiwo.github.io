@@ -1,6 +1,6 @@
 # Articles 邮件部署
 
-Articles 使用 Django 保存即时评论、话题和订阅读者。邮件由 PythonAnywhere 后端直接通过 mail.de SMTP 发送；验证邮件在订阅请求中立即发送，文章、话题和回复通知由一个 Always-on task 处理。
+Articles 使用 Django 保存即时评论、话题和订阅读者。邮件由 PythonAnywhere 后端直接通过 mail.de SMTP 发送；验证邮件、文章、话题和回复通知均进入队列，由一个 Always-on task 发送。
 
 服务器 `backend/.env`：
 
@@ -28,4 +28,4 @@ DEFAULT_FROM_EMAIL=Articles Notifications <发件邮箱>
 /home/jdChen3398/Hajiwo.github.io/backend/.venv/bin/python /home/jdChen3398/Hajiwo.github.io/backend/manage.py send_notifications --watch
 ```
 
-发送失败会按 2–60 分钟重试。后台“邮件通知”可以查看通知状态。暂停发信时，停止 Always-on task 并设置 `SUBSCRIPTIONS_ENABLED=false`。
+验证邮件通常会在一分钟内发出；发送失败会按 2–60 分钟重试。后台“订阅登录链接”和“邮件通知”可以分别查看验证邮件与通知邮件的发送状态。暂停发信时，停止 Always-on task 并设置 `SUBSCRIPTIONS_ENABLED=false`。
