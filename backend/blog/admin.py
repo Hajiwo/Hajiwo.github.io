@@ -9,7 +9,7 @@ from django.utils import timezone
 from django.utils.html import format_html
 
 from .forms import ArticleAdminForm
-from .models import Article, Comment, Series
+from .models import Article, Comment, Series, Topic, DiscussionPost, Subscriber, Notification
 
 
 class BlogAdminSite(AdminSite):
@@ -153,6 +153,9 @@ class ArticleAdmin(admin.ModelAdmin):
             status=Article.Status.PUBLISHED,
             published_at=timezone.now(), updated_at=timezone.now(),
         )
+        from django.db import transaction
+        from .notifications import collect_articles
+        transaction.on_commit(collect_articles)
         self.message_user(request, f'已发布 {updated} 篇文章。', messages.SUCCESS)
 
     @admin.action(description='将选中文章移回草稿', permissions=['change'])
@@ -210,7 +213,7 @@ class ArticleAdmin(admin.ModelAdmin):
 
 @admin.register(Comment, site=blog_admin)
 class CommentAdmin(admin.ModelAdmin):
-    list_display = ['author', 'article', 'approved', 'created_at']
+    list_display = ['author', 'article', 'parent', 'approved', 'created_at']
     list_filter = ['approved']
     search_fields = ['author', 'body']
     readonly_fields = ['created_at']
@@ -227,3 +230,43 @@ class CommentAdmin(admin.ModelAdmin):
 
 blog_admin.register(get_user_model(), UserAdmin)
 blog_admin.register(Group, GroupAdmin)
+
+
+@admin.register(Topic, site=blog_admin)
+class TopicAdmin(admin.ModelAdmin):
+    list_display = ['title', 'author', 'visible', 'locked', 'updated_at']
+    list_filter = ['visible', 'locked']
+    search_fields = ['title', 'body', 'author']
+    readonly_fields = ['created_at', 'updated_at', 'subscriber']
+    list_editable = ['visible', 'locked']
+
+
+@admin.register(DiscussionPost, site=blog_admin)
+class DiscussionPostAdmin(admin.ModelAdmin):
+    list_display = ['author', 'topic', 'visible', 'created_at']
+    list_filter = ['visible', 'topic']
+    search_fields = ['author', 'body']
+    readonly_fields = ['created_at', 'subscriber']
+    list_editable = ['visible']
+
+
+@admin.register(Subscriber, site=blog_admin)
+class SubscriberAdmin(admin.ModelAdmin):
+    list_display = ['name', 'email', 'active', 'verified_at', 'created_at']
+    list_filter = ['active', 'language']
+    search_fields = ['email', 'name']
+    readonly_fields = ['email', 'verified_at', 'created_at']
+    exclude = ['unsubscribe_token']
+
+    def has_add_permission(self, request):
+        return False
+
+
+@admin.register(Notification, site=blog_admin)
+class NotificationAdmin(admin.ModelAdmin):
+    list_display = ['title', 'subscriber', 'kind', 'sent_at', 'attempts', 'last_error', 'cancelled']
+    list_filter = ['kind', 'cancelled', 'sent_at']
+    readonly_fields = [field.name for field in Notification._meta.fields]
+
+    def has_add_permission(self, request):
+        return False

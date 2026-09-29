@@ -1,0 +1,27 @@
+---
+interface Props { id: string; labelZh?: string; labelEn?: string; maxLength?: number; }
+const {id, labelZh = '内容', labelEn = 'Content', maxLength = 20000} = Astro.props;
+---
+<div class="comment-field markdown-editor" data-markdown-editor>
+  <div class="editor-toolbar">
+    <label for={id} data-i18n-zh={labelZh} data-i18n-en={labelEn}>{labelZh}</label>
+    <button type="button" class="quiet-button" data-preview-toggle aria-pressed="false" data-i18n-zh="预览" data-i18n-en="Preview">预览</button>
+  </div>
+  <textarea id={id} name="body" required maxlength={maxLength} rows="5" placeholder="写下想法… 支持 Markdown" data-i18n-placeholder-zh="写下想法… 支持 Markdown" data-i18n-placeholder-en="Share your thoughts… Markdown supported"></textarea>
+  <div class="prose markdown-preview" data-preview hidden></div>
+  <small data-i18n-zh="支持 Markdown：**加粗**、列表、链接、代码。" data-i18n-en="Markdown: **bold**, lists, links and code.">支持 Markdown：**加粗**、列表、链接、代码。</small>
+</div>
+<script>
+import {renderMarkdown, tr} from '../lib/community';
+document.querySelectorAll<HTMLElement>('[data-markdown-editor]').forEach(editor => {
+  const input = editor.querySelector('textarea')!;
+  const preview = editor.querySelector<HTMLElement>('[data-preview]')!;
+  const button = editor.querySelector<HTMLButtonElement>('[data-preview-toggle]')!;
+  const update = () => renderMarkdown(preview, input.value || tr('还没有内容。', 'Nothing to preview yet.'));
+  button.addEventListener('click', () => {
+    preview.hidden = !preview.hidden; button.setAttribute('aria-pressed', String(!preview.hidden)); update();
+  });
+  input.addEventListener('input', update);
+  input.form?.addEventListener('reset', () => { preview.hidden = true; button.setAttribute('aria-pressed', 'false'); });
+});
+</script>

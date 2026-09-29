@@ -5,6 +5,7 @@ from rest_framework import filters, generics, status
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
 from rest_framework.throttling import AnonRateThrottle
+from .community import reader
 from .models import Article, Comment, Series
 from .serializers import ArticleSerializer, ArticleDetailSerializer, CommentSerializer, SeriesSerializer
 
@@ -62,11 +63,18 @@ class Comments(generics.ListCreateAPIView):
         return get_object_or_404(Article.objects.published(), slug=self.kwargs['slug'])
 
     def get_queryset(self):
-        return Comment.objects.filter(article=self.get_article(), approved=True)
+        return Comment.objects.filter(article=self.get_article(), approved=True).select_related('parent')
+
+    def get_serializer_context(self):
+        return {**super().get_serializer_context(), 'article': self.get_article()}
 
     def create(self, request, *args, **kwargs):
         article = self.get_article()
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        serializer.save(article=article, approved=False)
+        subscriber = reader(request) if article.content_type == 'article' else None
+        approved = article.content_type == 'article'
+        serializer.save(article=article, approved=approved, subscriber=subscriber, **({'author': subscriber.name} if subscriber else {}))
+        if approved:
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
         return Response({'status': 'pending', 'message': '评论已提交，审核后显示。'}, status=status.HTTP_201_CREATED)

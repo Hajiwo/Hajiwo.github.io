@@ -63,6 +63,8 @@ class BlogAPITests(APITestCase):
         self.assertEqual(series['description_en'], 'Study records')
 
     def test_comment_moderation_and_validation(self):
+        self.article.content_type = 'project'
+        self.article.save()
         url = '/api/v1/articles/public/comments/'
         response = self.client.post(url, {'author':'Reader', 'body':'Hello', 'approved':True}, format='json')
         self.assertEqual(response.status_code, 201)
@@ -75,7 +77,7 @@ class BlogAPITests(APITestCase):
         self.assertEqual(self.client.post('/api/v1/articles/draft/comments/', {'author':'x','body':'x'}).status_code, 404)
 
     def test_comment_throttle(self):
-        for _ in range(5):
+        for _ in range(30):
             self.assertEqual(self.client.post('/api/v1/articles/public/comments/', {'author':'x','body':'x'}).status_code, 201)
         self.assertEqual(self.client.post('/api/v1/articles/public/comments/', {'author':'x','body':'x'}).status_code, 429)
 

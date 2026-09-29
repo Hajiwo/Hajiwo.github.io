@@ -1,0 +1,40 @@
+---
+import BaseHead from '../../../components/BaseHead.astro';
+import Header from '../../../components/Header.astro';
+import Footer from '../../../components/Footer.astro';
+import Conversation from '../../../components/Conversation.astro';
+---
+<!doctype html><html lang="zh-CN"><head><BaseHead title="话题 · Articles" description="参与讨论" /></head><body><Header />
+<main id="main" class="community-page">
+  <a class="article-back" href="/articles/discussion/" data-i18n-zh="← 返回讨论" data-i18n-en="← Back to discussion">← 返回讨论</a>
+  <p role="status" data-topic-status></p>
+  <section data-topic-content hidden><h1 data-topic-title></h1><p class="topic-meta" data-topic-meta></p><article class="prose community-prose" data-topic-body></article><p data-topic-locked hidden data-i18n-zh="话题已关闭，暂不接受新回复。" data-i18n-en="This topic is closed to new replies.">话题已关闭，暂不接受新回复。</p>
+  <Conversation kind="discussion" /></section>
+</main><Footer /></body></html>
+<script>
+import {request, renderMarkdown, formatDate, tr} from '../../../lib/community';
+const id = new URLSearchParams(location.search).get('id') || '';
+const content = document.querySelector<HTMLElement>('[data-topic-content]')!;
+const status = document.querySelector<HTMLElement>('[data-topic-status]')!;
+let loading = false, rendered = ''; 
+async function load() {
+  if (loading) return; loading = true;
+  try {
+    if (!/^\d+$/.test(id)) throw new Error(tr('话题地址无效。', 'Invalid topic URL.'));
+    const topic = await request(`/topics/${id}/`);
+    const version = JSON.stringify(topic) + tr('zh', 'en');
+    if (version === rendered) return;
+    rendered = version;
+    document.title = `${topic.title} · Articles`;
+    content.querySelector('[data-topic-title]')!.textContent = topic.title;
+    content.querySelector('[data-topic-meta]')!.textContent = `${topic.author} · ${formatDate(topic.created_at)}`;
+    renderMarkdown(content.querySelector<HTMLElement>('[data-topic-body]')!, topic.body);
+    content.querySelector<HTMLElement>('[data-topic-locked]')!.hidden = !topic.locked;
+    content.querySelector<HTMLElement>('[data-thread-form]')!.hidden = topic.locked;
+    content.hidden = false; status.textContent = ''; window.dispatchEvent(new Event('conversationready'));
+  } catch (error) { rendered = ''; content.hidden = true; status.textContent = (error as Error).message; }
+  finally { loading = false; }
+}
+window.addEventListener('languagechange', load); window.addEventListener('focus', load);
+window.setInterval(() => { if (!document.hidden) load(); }, 15000); load();
+</script>

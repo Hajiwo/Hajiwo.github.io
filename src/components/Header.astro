@@ -1,7 +1,9 @@
 ---
 import { SITE_TITLE } from '../consts';
+import SubscriptionPrompt from './SubscriptionPrompt.astro';
 import Logo from '../img/logo.png';
 const readingSite = /^\/articles(?:\/|$)/.test(Astro.url.pathname);
+const discussion = Astro.url.pathname.startsWith('/articles/discussion');
 const home = readingSite ? '/articles/' : '/';
 const about = Astro.url.pathname.startsWith('/about');
 const blogs = Astro.url.pathname === '/' || Astro.url.pathname.startsWith('/blogs') || Astro.url.pathname.startsWith('/projects');
@@ -13,7 +15,7 @@ const blogs = Astro.url.pathname === '/' || Astro.url.pathname.startsWith('/blog
     <span class="brand-text">{readingSite ? 'Articles' : SITE_TITLE}</span>
   </a>
   <nav aria-label="主导航" data-i18n-aria-label-zh="主导航" data-i18n-aria-label-en="Main navigation">
-    <a href={home} class="nav-item" data-nav={readingSite ? 'articles' : 'blogs'} aria-current={readingSite || blogs ? 'page' : undefined}>
+    <a href={home} class="nav-item" data-nav={readingSite ? 'articles' : 'blogs'} aria-current={(readingSite && !discussion && !Astro.url.pathname.includes('/subscribe')) || blogs ? 'page' : undefined}>
       <svg class="nav-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
         <path d="M4 7.5h6l2-2h8v13H4z"/><path d="M8 12h8M8 15h5"/>
       </svg>
@@ -26,9 +28,14 @@ const blogs = Astro.url.pathname === '/' || Astro.url.pathname.startsWith('/blog
       </svg>
       <span data-i18n-zh="关于" data-i18n-en="About">关于</span>
     </a>}
+    {readingSite && <>
+      <a href="/articles/discussion/" class="nav-item" data-nav="discussion" aria-current={discussion ? 'page' : undefined}><span data-i18n-zh="讨论" data-i18n-en="Discussion">讨论</span></a>
+      <a href="/articles/subscribe/" class="nav-item subscription-nav"><span data-subscription-label>订阅</span></a>
+    </>}
     <button id="language-toggle" class="language-toggle" type="button" aria-label="Switch to English">EN</button>
   </nav>
 </header>
+{readingSite && <SubscriptionPrompt />}
 <script>
 	function applyLanguage(language: 'zh' | 'en', persist = true) {
 		document.documentElement.dataset.language = language;

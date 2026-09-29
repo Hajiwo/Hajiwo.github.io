@@ -1,0 +1,55 @@
+---
+import BaseHead from '../../../components/BaseHead.astro';
+import Header from '../../../components/Header.astro';
+import Footer from '../../../components/Footer.astro';
+import MarkdownEditor from '../../../components/MarkdownEditor.astro';
+---
+<!doctype html><html lang="zh-CN"><head><BaseHead title="讨论 · Articles" description="分享想法，持续讨论" /></head><body><Header />
+<main id="main" class="community-page">
+  <div class="community-heading"><div><h1 data-i18n-zh="讨论" data-i18n-en="Discussion">讨论</h1><p data-i18n-zh="一个话题，一段持续的对话。" data-i18n-en="A topic. A continuing conversation.">一个话题，一段持续的对话。</p></div><a href="#new-topic" class="primary-button" data-i18n-zh="发起话题" data-i18n-en="Start a topic">发起话题</a></div>
+  <p role="status" data-topics-status></p><div class="topic-list" data-topics></div>
+  <button type="button" class="quiet-button" data-topics-more hidden data-i18n-zh="加载更多" data-i18n-en="Load more">加载更多</button>
+  <section id="new-topic" class="new-topic"><h2 data-i18n-zh="发起新话题" data-i18n-en="Start a new topic">发起新话题</h2>
+  <form class="comment-form" data-topic-form>
+    <div class="comment-field"><label for="topic-title" data-i18n-zh="话题标题" data-i18n-en="Topic title">话题标题</label><input id="topic-title" name="title" maxlength="160" required /></div>
+    <div class="comment-field"><label for="topic-author" data-i18n-zh="称呼" data-i18n-en="Name">称呼</label><input id="topic-author" name="author" maxlength="80" required autocomplete="nickname" /></div>
+    <MarkdownEditor id="topic-body" />
+    <div class="comment-submit-row"><p role="status" data-topic-status></p><button type="submit" data-i18n-zh="发布话题" data-i18n-en="Publish topic">发布话题</button></div>
+  </form></section>
+</main><Footer /></body></html>
+<script>
+import {readPages, request, tr, fillIdentity, formatDate} from '../../../lib/community';
+const form = document.querySelector<HTMLFormElement>('[data-topic-form]')!;
+const list = document.querySelector<HTMLElement>('[data-topics]')!;
+const status = document.querySelector<HTMLElement>('[data-topics-status]')!;
+const more = document.querySelector<HTMLButtonElement>('[data-topics-more]')!;
+let pages = 1, loading = false, topics: any[] = [];
+let rendered = '';
+function render() {
+  const version = JSON.stringify(topics) + tr('zh', 'en');
+  if (version === rendered) return;
+  rendered = version;
+  list.replaceChildren();
+  if (!topics.length) { const empty = document.createElement('p'); empty.className = 'comments-placeholder'; empty.textContent = tr('还没有话题。分享第一个想法吧。', 'No topics yet. Share the first idea.'); list.append(empty); }
+  for (const topic of topics) {
+    const link = document.createElement('a'); link.className = 'topic-card'; link.href = `/articles/discussion/topic/?id=${topic.id}`;
+    const title = document.createElement('h2'); title.textContent = topic.title;
+    const meta = document.createElement('p'); meta.textContent = `${topic.author} · ${topic.post_count} ${tr('条回复', 'replies')} · ${formatDate(topic.updated_at)}${topic.locked ? tr(' · 已关闭', ' · Closed') : ''}`;
+    link.append(title, meta); list.append(link);
+  }
+}
+async function load() {
+  if (loading) return; loading = true; more.disabled = true;
+  try { const result = await readPages('/topics/', pages); topics = result.rows; more.hidden = !result.more; status.textContent = ''; render(); }
+  catch (error) { status.textContent = (error as Error).message; }
+  finally { loading = false; more.disabled = false; }
+}
+form.addEventListener('submit', async event => {
+  event.preventDefault(); const submit = form.querySelector<HTMLButtonElement>('button[type="submit"]')!; submit.disabled = true;
+  try { const data = Object.fromEntries(new FormData(form)); const topic = await request('/topics/', 'POST', data, true); location.assign(`/articles/discussion/topic/?id=${topic.id}`); }
+  catch (error) { document.querySelector('[data-topic-status]')!.textContent = (error as Error).message; submit.disabled = false; }
+});
+more.addEventListener('click', () => { pages++; load(); });
+window.addEventListener('readerchange', () => fillIdentity(form)); window.addEventListener('languagechange', render); window.addEventListener('focus', load);
+window.setInterval(() => { if (!document.hidden) load(); }, 15000); fillIdentity(form); load();
+</script>

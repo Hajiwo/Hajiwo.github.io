@@ -1,0 +1,29 @@
+<aside class="subscription-prompt" data-subscription-prompt hidden aria-label="订阅 / Subscribe">
+  <div><strong data-i18n-zh="想收到这里的新动态吗？" data-i18n-en="Stay in the conversation?">想收到这里的新动态吗？</strong>
+  <p data-i18n-zh="订阅新文章、讨论更新和回复提醒。可随时退订。" data-i18n-en="Get new articles, discussion updates and replies by email. Unsubscribe anytime.">订阅新文章、讨论更新和回复提醒。可随时退订。</p></div>
+  <div class="community-actions"><a href="/articles/subscribe/" class="primary-button" data-subscribe-accept data-i18n-zh="订阅" data-i18n-en="Subscribe">订阅</a><button type="button" class="quiet-button" data-subscribe-dismiss data-i18n-zh="暂时不用" data-i18n-en="Not now">暂时不用</button></div>
+</aside>
+<script>
+import {identity, remember, request, tr} from '../lib/community';
+const prompt = document.querySelector<HTMLElement>('[data-subscription-prompt]')!;
+if (prompt) {
+function update() {
+  const user = identity();
+  const nav = document.querySelector<HTMLElement>('[data-subscription-label]');
+  if (nav) {
+    nav.textContent = user ? user.subscriber.name : tr('订阅', 'Subscribe');
+    nav.title = tr('订阅与通知设置', 'Subscription and notification settings');
+  }
+  prompt.hidden = !!user || !!localStorage.getItem('articles-subscription-prompt') || location.pathname.includes('/subscribe');
+}
+const dismiss = () => { localStorage.setItem('articles-subscription-prompt', 'dismissed'); prompt.hidden = true; };
+prompt.querySelector('[data-subscribe-dismiss]')?.addEventListener('click', dismiss);
+prompt.querySelector('[data-subscribe-accept]')?.addEventListener('click', dismiss);
+window.addEventListener('readerchange', update);
+window.addEventListener('languagechange', update);
+update();
+if (identity()) request('/subscriptions/me/', 'GET', undefined, true).then(subscriber => {
+  const saved = identity(); if (saved) remember({...saved, subscriber});
+}).catch(() => {});
+}
+</script>

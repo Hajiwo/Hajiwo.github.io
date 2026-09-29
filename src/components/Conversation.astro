@@ -1,0 +1,97 @@
+---
+import MarkdownEditor from './MarkdownEditor.astro';
+interface Props { kind: 'comments' | 'discussion'; }
+const {kind} = Astro.props;
+const readingSite = Astro.url.pathname.startsWith('/articles/');
+---
+<section class="comments" data-conversation data-kind={kind} data-reading-site={String(readingSite)}>
+  <div class="comments-heading"><h2 data-i18n-zh={kind === 'comments' ? '评论' : '讨论'} data-i18n-en={kind === 'comments' ? 'Comments' : 'Discussion'}>{kind === 'comments' ? '评论' : '讨论'}</h2><span role="status" data-thread-status></span></div>
+  <div class="comment-list" data-thread-list></div>
+  <button type="button" class="quiet-button" data-thread-more hidden data-i18n-zh="加载更多" data-i18n-en="Load more">加载更多</button>
+  <form class="comment-form" data-thread-form>
+    <div class="reply-context" data-reply-context hidden><span></span><button type="button" class="quiet-button" data-cancel-reply data-i18n-zh="取消回复" data-i18n-en="Cancel reply">取消回复</button></div>
+    <div class="comment-field"><label for="conversation-author" data-i18n-zh="称呼" data-i18n-en="Name">称呼</label><input id="conversation-author" name="author" required maxlength="80" autocomplete="nickname" /></div>
+    <MarkdownEditor id="conversation-body" maxLength={kind === 'comments' ? 2000 : 20000} />
+    <div class="comment-submit-row"><p role="status" data-post-status></p><button type="submit" data-i18n-zh="发布" data-i18n-en="Post">发布</button></div>
+    <p class="moderation-note" data-i18n-zh={readingSite ? '发布后直接显示。游客也可参与；订阅后发布，可收到回复提醒。' : '评论审核后显示。'} data-i18n-en={readingSite ? 'Posts appear immediately. Guests are welcome; subscribe before posting to receive reply notifications.' : 'Comments appear after moderation.'}>{readingSite ? '发布后直接显示。游客也可参与；订阅后发布，可收到回复提醒。' : '评论审核后显示。'}</p>
+  </form>
+</section>
+<script>
+import {readPages, request, tr, fillIdentity, renderMarkdown, formatDate} from '../lib/community';
+const root = document.querySelector<HTMLElement>('[data-conversation]');
+if (root) {
+  const kind = root.dataset.kind;
+  const readingSite = root.dataset.readingSite === 'true';
+  const params = new URLSearchParams(location.search);
+  const endpoint = kind === 'comments' ? `/articles/${encodeURIComponent(params.get('slug') || '')}/comments/` : `/topics/${encodeURIComponent(params.get('id') || '')}/posts/`;
+  const list = root.querySelector<HTMLElement>('[data-thread-list]')!;
+  const form = root.querySelector<HTMLFormElement>('[data-thread-form]')!;
+  const more = root.querySelector<HTMLButtonElement>('[data-thread-more]')!;
+  const status = root.querySelector<HTMLElement>('[data-thread-status]')!;
+  const postStatus = root.querySelector<HTMLElement>('[data-post-status]')!;
+  const replyContext = root.querySelector<HTMLElement>('[data-reply-context]')!;
+  let pages = 1, loading = false, posting = false, parent: number | null = null;
+  let rows: any[] = [];
+  const focusMatch = location.hash.match(/^#(?:comment|post)-(\d+)$/);
+  let focused = false;
+  function focusTarget() {
+    if (focused || !focusMatch) return;
+    const target = document.getElementById(location.hash.slice(1));
+    if (target && target.getClientRects().length) { target.scrollIntoView({block: 'center'}); focused = true; }
+  }
+  window.addEventListener('conversationready', focusTarget);
+  function reply(id: number | null) {
+    parent = id; replyContext.hidden = !id;
+    replyContext.querySelector('span')!.textContent = id ? `${tr('回复', 'Reply to')} ${rows.find(row => row.id === id)?.author || ''}` : '';
+    if (id) { form.scrollIntoView({behavior: 'smooth', block: 'center'}); form.querySelector('textarea')!.focus({preventScroll: true}); }
+  }
+  let rendered = '';
+  function render() {
+    const version = JSON.stringify(rows) + tr('zh', 'en');
+    if (version === rendered) return;
+    rendered = version;
+    list.replaceChildren();
+    if (!rows.length) { const empty = document.createElement('p'); empty.className = 'comments-placeholder'; empty.textContent = tr('还没有内容，来开启对话吧。', 'No posts yet. Start the conversation.'); list.append(empty); }
+    for (const row of rows) {
+      const article = document.createElement('article'); article.className = 'comment'; article.id = `${kind === 'comments' ? 'comment' : 'post'}-${row.id}`;
+      const header = document.createElement('header'); const name = document.createElement('strong'); name.textContent = row.author + (row.verified_reader ? tr(' · 已验证', ' · Verified') : tr(' · 游客', ' · Guest'));
+      const time = document.createElement('time'); time.dateTime = row.created_at; time.textContent = formatDate(row.created_at); header.append(name, time); article.append(header);
+      if (row.parent_author) { const context = document.createElement('p'); context.className = 'reply-label'; context.textContent = `${tr('回复', 'Reply to')} ${row.parent_author}`; article.append(context); }
+      const body = document.createElement('div'); body.className = 'prose community-prose'; renderMarkdown(body, row.body); article.append(body);
+      const button = document.createElement('button'); button.type = 'button'; button.className = 'quiet-button'; button.textContent = tr('回复', 'Reply'); button.addEventListener('click', () => reply(row.id)); article.append(button); list.append(article);
+    }
+  }
+  async function load() {
+    if (loading) return; loading = true; more.disabled = true;
+    try {
+      let result = await readPages(endpoint, pages);
+      while (focusMatch && !focused && !result.rows.some(row => row.id === Number(focusMatch[1])) && result.more) {
+        pages++; result = await readPages(endpoint, pages);
+      }
+      rows = result.rows; more.hidden = !result.more; status.textContent = ''; render(); focusTarget();
+    }
+    catch (error) { status.textContent = (error as Error).message; }
+    finally { loading = false; more.disabled = false; }
+  }
+  form.addEventListener('submit', async event => {
+    event.preventDefault(); if (posting) return;
+    posting = true; const submit = form.querySelector<HTMLButtonElement>('button[type="submit"]')!; submit.disabled = true;
+    try {
+      const data = new FormData(form);
+      const result = await request(endpoint, 'POST', {author: data.get('author'), body: data.get('body'), parent}, readingSite);
+      form.reset(); if (readingSite) fillIdentity(form); reply(null);
+      postStatus.textContent = result.status === 'pending' ? tr('已提交，审核后显示。', 'Submitted for moderation.') : tr('已发布。', 'Posted.');
+      // Load through the newest page so your own reply is visible immediately.
+      const first = await request(endpoint); pages = Math.max(1, Math.ceil(first.count / 20)); await load();
+    } catch (error) { postStatus.textContent = (error as Error).message; }
+    finally { posting = false; submit.disabled = false; }
+  });
+  more.addEventListener('click', () => { pages++; load(); });
+  root.querySelector('[data-cancel-reply]')!.addEventListener('click', () => reply(null));
+  window.addEventListener('languagechange', render);
+  if (readingSite) { fillIdentity(form); window.addEventListener('readerchange', () => fillIdentity(form)); }
+  window.addEventListener('focus', load);
+  window.setInterval(() => { if (!document.hidden && !posting) load(); }, 15000);
+  load();
+}
+</script>

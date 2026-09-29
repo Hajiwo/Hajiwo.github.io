@@ -171,6 +171,7 @@ const apiBase = configuredApi.replace(/\/$/, '');
 		state.hidden = true;
 		state.classList.remove('is-error');
 		content.hidden = false;
+		window.dispatchEvent(new Event('conversationready'));
 	}
 
 	async function loadArticle() {

@@ -28,7 +28,22 @@ class ArticleDetailSerializer(ArticleSerializer):
         fields = ArticleSerializer.Meta.fields + ['body', 'body_en']
 
 class CommentSerializer(serializers.ModelSerializer):
+    verified_reader = serializers.SerializerMethodField()
+
+    def get_verified_reader(self, obj):
+        return bool(obj.subscriber_id)
+
+    parent_author = serializers.SerializerMethodField()
+
+    def get_parent_author(self, obj):
+        return obj.parent.author if obj.parent and obj.parent.approved else None
+
+    def validate_parent(self, parent):
+        if parent and (parent.article_id != self.context['article'].pk or not parent.approved):
+            raise serializers.ValidationError('Choose a visible comment in this article.')
+        return parent
+
     class Meta:
         model = Comment
-        fields = ['id', 'author', 'body', 'created_at']
+        fields = ['id', 'author', 'body', 'parent', 'parent_author', 'verified_reader', 'created_at']
         read_only_fields = ['id', 'created_at']
