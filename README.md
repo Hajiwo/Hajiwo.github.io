@@ -5,7 +5,7 @@
 - `src/`：Astro 静态前端，由 GitHub Actions 构建并部署到 GitHub Pages。
 - `backend/`：Django REST API 与管理员后台，部署到 PythonAnywhere。
 - Django 数据库是文章、项目报告、系列与评论的唯一内容来源；`Article.content_type` 将普通文章与项目报告分开。
-- `/` 展示 Articles，`/projects/` 只展示 Projects；前端通过 `PUBLIC_API_BASE_URL` 实时读取公开 API。
+- `/` 展示 Projects，导航仅提供项目和关于；`/articles/` 为无导航入口且不收录到站点地图的文章页（仍可公开访问）；前端通过 `PUBLIC_API_BASE_URL` 实时读取公开 API。
 
 生产环境需要在 GitHub Actions 仓库变量中设置：
 

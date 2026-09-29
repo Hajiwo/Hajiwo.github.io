@@ -22,7 +22,7 @@ const apiBase = configuredApi.replace(/\/$/, '');
 				<span data-i18n-zh="正在从后端读取文章…" data-i18n-en="Loading article from the backend…">正在从后端读取文章…</span>
 			</div>
 			<div class="dynamic-article-shell" data-article-content hidden>
-				<a class="article-back" href="/"><span data-i18n-zh="← 返回文章列表" data-i18n-en="← Back to articles">← 返回文章列表</span></a>
+				<a class="article-back" href="/articles/"><span data-i18n-zh="← 返回文章列表" data-i18n-en="← Back to articles">← 返回文章列表</span></a>
 				<header class="dynamic-article-header">
 					<span class="tag" data-article-series><i></i><span></span></span>
 					<h1 data-article-title></h1>
@@ -116,7 +116,7 @@ const apiBase = configuredApi.replace(/\/$/, '');
 		const copy = document.createElement('p');
 		copy.textContent = english() ? en : zh;
 		const back = document.createElement('a');
-		back.href = '/';
+		back.href = '/articles/';
 		back.textContent = english() ? '← Back to articles' : '← 返回文章列表';
 		state.append(heading, copy, back);
 	}
@@ -124,7 +124,7 @@ const apiBase = configuredApi.replace(/\/$/, '');
 	function renderArticle(article: ArticleDetail) {
 		const isProject = article.content_type === 'project';
 		const back = page.querySelector<HTMLAnchorElement>('.article-back')!;
-		back.href = isProject ? '/projects/' : '/';
+		back.href = isProject ? '/' : '/articles/';
 		back.querySelector<HTMLElement>('span')!.dataset.i18nZh = isProject ? '← 返回项目列表' : '← 返回文章列表';
 		back.querySelector<HTMLElement>('span')!.dataset.i18nEn = isProject ? '← Back to projects' : '← Back to articles';
 		back.querySelector<HTMLElement>('span')!.textContent = english() ? back.querySelector<HTMLElement>('span')!.dataset.i18nEn! : back.querySelector<HTMLElement>('span')!.dataset.i18nZh!;

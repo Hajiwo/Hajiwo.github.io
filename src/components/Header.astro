@@ -2,8 +2,7 @@
 import { SITE_TITLE } from '../consts';
 import Logo from '../img/logo.png';
 const about = Astro.url.pathname.startsWith('/about');
-const projects = Astro.url.pathname.startsWith('/projects');
-const articles = !about && !projects;
+const projects = Astro.url.pathname === '/' || Astro.url.pathname.startsWith('/projects');
 ---
 <a class="skip-link" href="#main" data-i18n-zh="跳至正文" data-i18n-en="Skip to content">跳至正文</a>
 <header class="site-header">
@@ -12,20 +11,11 @@ const articles = !about && !projects;
     <span class="brand-text">{SITE_TITLE}</span>
   </a>
   <nav aria-label="主导航" data-i18n-aria-label-zh="主导航" data-i18n-aria-label-en="Main navigation">
-    <a href="/projects/" class="nav-item" data-nav="projects" aria-current={projects ? 'page' : undefined}>
+    <a href="/" class="nav-item" data-nav="projects" aria-current={projects ? 'page' : undefined}>
       <svg class="nav-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
         <path d="M4 7.5h6l2-2h8v13H4z"/><path d="M8 12h8M8 15h5"/>
       </svg>
       <span data-i18n-zh="项目" data-i18n-en="Projects">项目</span>
-    </a>
-    <a href="/" class="nav-item" data-nav="articles" aria-current={articles ? 'page' : undefined}>
-      <svg class="nav-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-        <polyline points="14 2 14 8 20 8"/>
-        <line x1="16" y1="13" x2="8" y2="13"/>
-        <line x1="16" y1="17" x2="8" y2="17"/>
-      </svg>
-      <span data-i18n-zh="文章" data-i18n-en="Articles">文章</span>
     </a>
     <a href="/about/" class="nav-item" aria-current={about ? 'page' : undefined}>
       <svg class="nav-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -33,16 +23,6 @@ const articles = !about && !projects;
         <path d="M6 21v-2a4 4 0 0 1 4-4h4a4 4 0 0 1 4 4v2" />
       </svg>
       <span data-i18n-zh="关于" data-i18n-en="About">关于</span>
-    </a>
-    <a href="https://github.com/Hajiwo" target="_blank" rel="noopener noreferrer" class="nav-item">
-      <svg class="nav-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-        <circle cx="6" cy="6" r="2.5" />
-        <circle cx="18" cy="6" r="2.5" />
-        <circle cx="12" cy="18" r="2" fill="#b59a55" stroke="currentColor" />
-        <path d="M6 8.5v3a4 4 0 0 0 4 4h4a4 4 0 0 0 4-4v-3" />
-        <line x1="12" y1="15" x2="12" y2="16" />
-      </svg>
-      <span>GitHub</span>
     </a>
     <button id="language-toggle" class="language-toggle" type="button" aria-label="Switch to English">EN</button>
   </nav>
