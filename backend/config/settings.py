@@ -67,7 +67,7 @@ REST_FRAMEWORK = {
     'DEFAULT_RENDERER_CLASSES': ['rest_framework.renderers.JSONRenderer'],
     'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
     'PAGE_SIZE': 20,
-    'DEFAULT_THROTTLE_RATES': {'comments': '30/hour', 'community': '60/hour', 'subscriptions': '5/hour', 'verify': '30/hour'},
+    'DEFAULT_THROTTLE_RATES': {'comments': '30/hour', 'community': '60/hour', 'subscriptions': '5/hour', 'account_lookup': '60/hour', 'verify': '30/hour'},
     'SEARCH_PARAM': 'q',
 }
 

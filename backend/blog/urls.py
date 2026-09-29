@@ -3,7 +3,9 @@ from . import views, community, mail_worker
 urlpatterns = [
     path('mail-worker/claim/', mail_worker.claim),
     path('mail-worker/ack/', mail_worker.acknowledge),
+    path('subscriptions/account/', community.subscription_account),
     path('subscriptions/', community.subscribe),
+    path('subscriptions/login/', community.login),
     path('subscriptions/verify/', community.verify),
     path('subscriptions/me/', community.subscription_me),
     path('subscriptions/unsubscribe/', community.unsubscribe),

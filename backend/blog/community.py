@@ -38,6 +38,10 @@ class SubscriptionThrottle(AnonRateThrottle):
     scope = 'subscriptions'
 
 
+class AccountLookupThrottle(AnonRateThrottle):
+    scope = 'account_lookup'
+
+
 class VerifyThrottle(AnonRateThrottle):
     scope = 'verify'
 
@@ -59,6 +63,40 @@ class SubscribeSerializer(serializers.Serializer):
     language = serializers.ChoiceField(choices=['zh', 'en'], default='zh')
 
 
+class LoginSerializer(serializers.Serializer):
+    email = serializers.EmailField(max_length=254)
+    language = serializers.ChoiceField(choices=['zh', 'en'], default='zh')
+
+
+class AccountLookupSerializer(serializers.Serializer):
+    email = serializers.EmailField(max_length=254)
+
+
+def queue_verification(subscriber, language, mode):
+    token = f'{mode}_{secrets.token_urlsafe(32)}'
+    now = timezone.now()
+    # A new request supersedes older unsent links, avoiding duplicate delivery
+    # when a reader retries after a temporary SMTP failure.
+    SubscriberLogin.objects.filter(subscriber=subscriber, used_at__isnull=True, sent_at__isnull=True).update(
+        delivery_token='', expires_at=now, claimed_at=None, lease_token=None,
+    )
+    SubscriberLogin.objects.create(
+        subscriber=subscriber, token_hash=digest(token), name=subscriber.name, language=language,
+        expires_at=now + timedelta(hours=24), delivery_token=token,
+    )
+
+
+@api_view(['POST'])
+@throttle_classes([AccountLookupThrottle])
+def subscription_account(request):
+    data = AccountLookupSerializer(data=request.data)
+    data.is_valid(raise_exception=True)
+    email = data.validated_data['email'].casefold()
+    response = Response({'exists': Subscriber.objects.filter(email__iexact=email).exists()})
+    response['Cache-Control'] = 'no-store, private'
+    return response
+
+
 @api_view(['POST'])
 @throttle_classes([SubscriptionThrottle])
 def subscribe(request):
@@ -71,19 +109,35 @@ def subscribe(request):
     key = f'subscribe:{digest(email)}'
     if not cache.add(key, True, 60):
         return Response({'detail': 'Please wait one minute before requesting another email.'}, status=429)
-    subscriber, _ = Subscriber.objects.get_or_create(email=email, defaults={'name': values['name']})
-    token = secrets.token_urlsafe(32)
-    now = timezone.now()
-    # A new request supersedes older unsent links, avoiding duplicate delivery
-    # when a reader retries after a temporary SMTP failure.
-    SubscriberLogin.objects.filter(subscriber=subscriber, used_at__isnull=True, sent_at__isnull=True).update(
-        delivery_token='', expires_at=now, claimed_at=None, lease_token=None,
-    )
-    SubscriberLogin.objects.create(
-        subscriber=subscriber, token_hash=digest(token), name=values['name'], language=values['language'],
-        expires_at=now + timedelta(hours=24), delivery_token=token,
-    )
+    if Subscriber.objects.filter(email__iexact=email).exists():
+        cache.delete(key)
+        return Response({'detail': 'Account already exists. Sign in instead.'}, status=409)
+    subscriber, created = Subscriber.objects.get_or_create(email=email, defaults={'name': values['name']})
+    if not created:
+        cache.delete(key)
+        return Response({'detail': 'Account already exists. Sign in instead.'}, status=409)
+    queue_verification(subscriber, values['language'], 'subscribe')
     return Response({'status': 'verification_queued'}, status=202)
+
+
+@api_view(['POST'])
+@throttle_classes([SubscriptionThrottle])
+def login(request):
+    data = LoginSerializer(data=request.data)
+    data.is_valid(raise_exception=True)
+    values = data.validated_data
+    email = values['email'].casefold()
+    if not settings.SUBSCRIPTIONS_ENABLED:
+        return Response({'detail': 'Email subscriptions are not configured yet.'}, status=503)
+    key = f'subscribe:{digest(email)}'
+    if not cache.add(key, True, 60):
+        return Response({'detail': 'Please wait one minute before requesting another email.'}, status=429)
+    subscriber = Subscriber.objects.filter(email__iexact=email).first()
+    if not subscriber:
+        cache.delete(key)
+        return Response({'detail': 'Account does not exist. Subscribe first.'}, status=404)
+    queue_verification(subscriber, values['language'], 'login')
+    return Response({'status': 'login_queued'}, status=202)
 
 
 @api_view(['POST'])

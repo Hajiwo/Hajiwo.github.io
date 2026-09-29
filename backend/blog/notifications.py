@@ -131,6 +131,11 @@ def notification_message(item):
 
 
 def verification_message(token):
-    link = f'{settings.ARTICLES_SITE_URL}/subscribe/#verify={token}'
+    login = token.startswith('login_')
+    mode = '&mode=login' if login else '&mode=subscribe'
+    link = f'{settings.ARTICLES_SITE_URL}/subscribe/#verify={token}{mode}'
+    if login:
+        return ('登录 Articles / Sign in to Articles',
+                f'点击链接验证邮箱并登录（30 分钟内有效）：\nVerify your email and sign in (valid for 30 minutes):\n{link}\n\n未申请请忽略。If you did not request this, ignore this email.')
     return ('确认订阅 Articles / Confirm your Articles subscription',
             f'点击链接验证邮箱并订阅（30 分钟内有效）：\nVerify your email and subscribe (valid for 30 minutes):\n{link}\n\n未申请请忽略。If you did not request this, ignore this email.')

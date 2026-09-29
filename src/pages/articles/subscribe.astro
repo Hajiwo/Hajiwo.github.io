@@ -13,10 +13,10 @@ import Footer from '../../components/Footer.astro';
     <p data-confirm-copy></p><button type="button" class="primary-button" data-confirm-button></button>
   </section>
   <form data-subscription-form class="comment-form">
-    <div class="comment-field"><label for="reader-name" data-i18n-zh="用户名" data-i18n-en="Name">用户名</label><input id="reader-name" name="name" required maxlength="80" autocomplete="nickname" /></div>
-    <div class="comment-field"><label for="reader-email" data-i18n-zh="邮箱" data-i18n-en="Email">邮箱</label><input id="reader-email" name="email" type="email" required maxlength="254" autocomplete="email" /></div>
+    <div class="comment-field" data-name-field><label for="reader-name" data-i18n-zh="用户名" data-i18n-en="Name">用户名</label><input id="reader-name" name="name" required maxlength="80" autocomplete="nickname" /></div>
+    <div class="comment-field"><label for="reader-email" data-i18n-zh="邮箱" data-i18n-en="Email">邮箱</label><div class="email-input-shell"><input id="reader-email" name="email" type="email" required maxlength="254" autocomplete="email" aria-describedby="email-account-help" /><span class="email-account-state" data-email-exists hidden><span class="email-account-dot"></span><span data-i18n-zh="账号已存在" data-i18n-en="Account exists">账号已存在</span></span></div><p id="email-account-help" class="email-account-help" role="status" aria-live="polite" data-email-help></p></div>
     <p class="moderation-note" data-i18n-zh="订阅后接收新文章、讨论更新和回复通知。邮箱不会公开；可以随时修改偏好或退订。" data-i18n-en="Subscribe to articles, discussion updates and replies. Your email stays private. Change preferences or unsubscribe anytime.">订阅后接收新文章、讨论更新和回复通知。邮箱不会公开；可以随时修改偏好或退订。</p>
-    <button type="submit" class="primary-button" data-i18n-zh="发送验证邮件" data-i18n-en="Send verification email">发送验证邮件</button>
+    <div class="subscription-actions"><button type="submit" class="primary-button" data-subscribe-button disabled data-i18n-zh="订阅" data-i18n-en="Subscribe">订阅</button><button type="button" class="quiet-button login-button" data-login-button disabled data-i18n-zh="登录" data-i18n-en="Sign in">登录</button></div>
   </form>
   <form data-preferences class="comment-form" hidden>
     <p data-reader-info></p>
@@ -34,11 +34,20 @@ const prefs = document.querySelector<HTMLFormElement>('[data-preferences]')!;
 const status = document.querySelector<HTMLElement>('[data-subscription-status]')!;
 const confirm = document.querySelector<HTMLElement>('[data-confirm]')!;
 const button = confirm.querySelector<HTMLButtonElement>('button')!;
-let verification: string | null = null, unsubscribe: string | null = null, actionPending = false;
+const nameField = signup.querySelector<HTMLElement>('[data-name-field]')!;
+const nameInput = signup.elements.namedItem('name') as HTMLInputElement;
+const emailInput = signup.elements.namedItem('email') as HTMLInputElement;
+const existsBadge = signup.querySelector<HTMLElement>('[data-email-exists]')!;
+const emailHelp = signup.querySelector<HTMLElement>('[data-email-help]')!;
+const subscribeButton = signup.querySelector<HTMLButtonElement>('[data-subscribe-button]')!;
+const loginButton = signup.querySelector<HTMLButtonElement>('[data-login-button]')!;
+type LookupState = 'idle' | 'checking' | 'new' | 'exists' | 'error';
+let lookupState: LookupState = 'idle', lookupTimer: number | undefined, lookupVersion = 0;
+let verification: string | null = null, verificationMode: 'subscribe' | 'login' = 'subscribe', unsubscribe: string | null = null, actionPending = false;
 function readLink() {
   const params = new URLSearchParams(location.hash.slice(1));
   if (!params.has('verify') && !params.has('unsubscribe')) return;
-  verification = params.get('verify'); unsubscribe = params.get('unsubscribe');
+  verification = params.get('verify'); verificationMode = params.get('mode') === 'login' ? 'login' : 'subscribe'; unsubscribe = params.get('unsubscribe');
   actionPending = !!(verification || unsubscribe);
   // Keep one-use credentials out of the address bar and browser history.
   history.replaceState(null, '', location.pathname);
@@ -57,24 +66,63 @@ function render() {
     });
   }
   if (actionPending) {
-    confirm.querySelector('[data-confirm-copy]')!.textContent = verification ? tr('确认订阅并记住此浏览器？', 'Confirm subscription and remember this browser?') : tr('停止接收所有邮件通知？', 'Stop all email notifications?');
-    button.textContent = verification ? tr('确认订阅', 'Confirm subscription') : tr('确认退订', 'Unsubscribe');
+    confirm.querySelector('[data-confirm-copy]')!.textContent = verification ? (verificationMode === 'login' ? tr('确认登录并记住此浏览器？', 'Sign in and remember this browser?') : tr('确认订阅并记住此浏览器？', 'Confirm subscription and remember this browser?')) : tr('停止接收所有邮件通知？', 'Stop all email notifications?');
+    button.textContent = verification ? (verificationMode === 'login' ? tr('确认登录', 'Sign in') : tr('确认订阅', 'Confirm subscription')) : tr('确认退订', 'Unsubscribe');
   }
 }
+function renderLookup() {
+  const existing = lookupState === 'exists';
+  existsBadge.hidden = !existing;
+  nameField.hidden = existing;
+  nameInput.disabled = existing;
+  subscribeButton.disabled = lookupState !== 'new';
+  loginButton.disabled = !existing;
+  emailHelp.textContent = lookupState === 'checking' ? tr('正在检查邮箱…', 'Checking email…') : existing ? tr('账号已存在，请使用登录按钮。登录后会恢复首次订阅的用户名和偏好。', 'Account found. Use Sign in to restore the original name and preferences.') : lookupState === 'new' ? tr('这是新邮箱，可以创建订阅账号。', 'This email is new. You can create a subscription account.') : lookupState === 'error' ? tr('暂时无法检查邮箱，请稍后重试。', 'Could not check this email. Try again shortly.') : '';
+}
+async function checkEmail() {
+  const email = emailInput.value.trim();
+  const version = ++lookupVersion;
+  if (!email || !emailInput.validity.valid) { lookupState = 'idle'; renderLookup(); return; }
+  lookupState = 'checking'; renderLookup();
+  try {
+    const result = await request('/subscriptions/account/', 'POST', {email});
+    if (version !== lookupVersion || email !== emailInput.value.trim()) return;
+    lookupState = result.exists ? 'exists' : 'new';
+  } catch {
+    if (version !== lookupVersion) return;
+    lookupState = 'error';
+  }
+  renderLookup();
+}
+function scheduleEmailCheck() {
+  window.clearTimeout(lookupTimer); lookupVersion += 1; lookupState = 'idle'; renderLookup();
+  if (emailInput.value.trim() && emailInput.validity.valid) lookupTimer = window.setTimeout(checkEmail, 350);
+}
+emailInput.addEventListener('input', scheduleEmailCheck);
+emailInput.addEventListener('change', scheduleEmailCheck);
 signup.addEventListener('submit', async event => {
-  event.preventDefault(); const submit = signup.querySelector<HTMLButtonElement>('button')!; submit.disabled = true;
+  event.preventDefault(); if (lookupState !== 'new') return; subscribeButton.disabled = true; loginButton.disabled = true;
   try {
     const data = new FormData(signup);
     const result = await request('/subscriptions/', 'POST', {name: data.get('name'), email: data.get('email'), language: tr('zh', 'en')});
     status.textContent = result.status === 'verification_queued' ? tr('正在发送验证邮件，通常一分钟内到达。请检查收件箱和垃圾邮件；链接在收到后 30 分钟内有效。', 'Your verification email is being sent and normally arrives within a minute. Check your inbox and spam; the link is valid for 30 minutes after delivery.') : tr('验证邮件已发送。请打开邮箱中的链接（30 分钟内有效）。', 'Verification email sent. Open its link within 30 minutes.');
-  } catch (error) { status.textContent = (error as Error).message; } finally { submit.disabled = false; }
+    lookupState = 'exists'; renderLookup();
+  } catch (error) { status.textContent = (error as Error).message; renderLookup(); }
+});
+loginButton.addEventListener('click', async () => {
+  if (lookupState !== 'exists') return; subscribeButton.disabled = true; loginButton.disabled = true;
+  try {
+    const result = await request('/subscriptions/login/', 'POST', {email: emailInput.value.trim(), language: tr('zh', 'en')});
+    status.textContent = result.status === 'login_queued' ? tr('登录邮件正在发送，通常一分钟内到达。请检查收件箱和垃圾邮件。', 'Your sign-in email is being sent and normally arrives within a minute. Check your inbox and spam.') : tr('登录邮件已发送。', 'Sign-in email sent.');
+  } catch (error) { status.textContent = (error as Error).message; }
+  finally { renderLookup(); }
 });
 button.addEventListener('click', async () => {
   button.disabled = true;
   try {
     if (verification) {
       remember(await request('/subscriptions/verify/', 'POST', {token: verification}));
-      status.textContent = tr('订阅成功！这个浏览器已记住你的身份。', 'Subscribed! This browser now remembers you.');
+      status.textContent = verificationMode === 'login' ? tr('登录成功！已恢复原账号和通知偏好。', 'Signed in! Your original account and preferences are restored.') : tr('订阅成功！这个浏览器已记住你的身份。', 'Subscribed! This browser now remembers you.');
     } else {
       await request('/subscriptions/unsubscribe/', 'POST', {token: unsubscribe});
       // Refresh this browser only if it is signed in; the link may belong to another reader.
@@ -99,5 +147,5 @@ prefs.addEventListener('submit', async event => {
 document.querySelector('[data-logout]')!.addEventListener('click', async () => {
   try { await request('/subscriptions/me/', 'DELETE', undefined, true); remember(null); status.textContent = tr('已退出。邮件偏好保持不变。', 'Signed out. Your email preferences are unchanged.'); } catch (error) { status.textContent = (error as Error).message; }
 });
-window.addEventListener('readerchange', render); window.addEventListener('languagechange', render); readLink(); render();
+window.addEventListener('readerchange', render); window.addEventListener('languagechange', () => { render(); renderLookup(); }); readLink(); render(); renderLookup();
 </script>

@@ -767,6 +767,15 @@ table {
 .preference { display: flex; align-items: center; gap: 10px; margin-bottom: 18px; }
 .subscription-page { max-width: 620px; }
 .subscription-page .primary-button { margin-top: 12px; }
+.email-input-shell { position: relative; }
+.email-input-shell input { width: 100%; padding-right: 130px; }
+.email-account-state { position: absolute; top: 50%; right: 13px; display: inline-flex; align-items: center; gap: 6px; transform: translateY(-50%); color: #2f7547; font-size: 12px; font-weight: 650; pointer-events: none; }
+.email-account-dot { width: 8px; height: 8px; border-radius: 50%; background: #43a866; box-shadow: 0 0 0 3px rgba(67,168,102,.14); }
+.email-account-help { min-height: 1.4em; margin: 7px 2px 0; color: var(--muted); font-size: 12px; }
+.subscription-actions { display: flex; align-items: center; gap: 10px; margin-top: 12px; }
+.subscription-actions .primary-button { margin-top: 0; }
+.subscription-actions .login-button { min-width: 96px; padding: 9px 18px; }
+.subscription-actions .quiet-button:disabled { opacity: .42; cursor: not-allowed; }
 .subscription-prompt { position: fixed; z-index: 20; bottom: 20px; right: 24px; width: min(420px, calc(100% - 32px)); padding: 22px; border: 1px solid var(--line); border-radius: 16px; background: var(--cream); box-shadow: 0 8px 35px #17354b22; }
 .subscription-prompt p { color: var(--muted); font-size: 14px; margin: 8px 0 16px; }
 .subscription-nav { max-width: 130px; overflow: hidden; text-overflow: ellipsis; }

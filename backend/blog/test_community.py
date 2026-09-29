@@ -55,13 +55,12 @@ class CommunityTests(APITestCase):
         self.assertEqual(Comment.objects.count(), 1)
 
     def test_verification_one_use_and_case_insensitive_email(self):
-        response = self.client.post('/api/v1/subscriptions/', {'email':'Reader@Example.com','name':'New name','language':'en'})
+        response = self.client.post('/api/v1/subscriptions/', {'email':'New@Example.com','name':'New name','language':'en'})
         self.assertEqual(response.status_code, 202)
         self.assertEqual(response.json(), {'status': 'verification_queued'})
-        self.assertEqual(Subscriber.objects.count(), 2)
-        self.reader.refresh_from_db(); self.assertEqual(self.reader.name, 'Reader')
+        self.assertEqual(Subscriber.objects.count(), 3)
         self.assertEqual(deliver_verifications(), 1)
-        token = mail.outbox[-1].body.split('#verify=')[1].split()[0]
+        token = mail.outbox[-1].body.split('#verify=')[1].split('&')[0]
         verified = self.client.post('/api/v1/subscriptions/verify/', {'token':token})
         self.assertEqual(verified.status_code, 200)
         self.assertEqual(verified['Cache-Control'], 'no-store')
@@ -72,6 +71,30 @@ class CommunityTests(APITestCase):
         self.assertEqual(self.client.get('/api/v1/subscriptions/me/').status_code, 200)
         self.assertEqual(self.client.delete('/api/v1/subscriptions/me/').status_code, 204)
         self.assertIn(self.client.get('/api/v1/subscriptions/me/').status_code, [401,403])
+
+    def test_existing_email_switches_to_login_and_preserves_first_name(self):
+        existing = self.client.post('/api/v1/subscriptions/account/', {'email':'Reader@Example.com'})
+        self.assertEqual(existing.status_code, 200)
+        self.assertEqual(existing.json(), {'exists': True})
+        self.assertEqual(existing['Cache-Control'], 'no-store, private')
+        self.assertEqual(self.client.post('/api/v1/subscriptions/account/', {'email':'new@example.com'}).json(), {'exists': False})
+        self.assertEqual(self.client.post('/api/v1/subscriptions/', {'email':'Reader@Example.com','name':'Changed'}).status_code, 409)
+        response = self.client.post('/api/v1/subscriptions/login/', {'email':'Reader@Example.com','language':'en'})
+        self.assertEqual(response.status_code, 202)
+        self.assertEqual(response.json(), {'status': 'login_queued'})
+        self.assertEqual(deliver_verifications(), 1)
+        self.assertIn('Sign in to Articles', mail.outbox[-1].subject)
+        self.assertIn('&mode=login', mail.outbox[-1].body)
+        token = mail.outbox[-1].body.split('#verify=')[1].split('&')[0]
+        verified = self.client.post('/api/v1/subscriptions/verify/', {'token':token})
+        self.assertEqual(verified.status_code, 200)
+        self.assertEqual(verified.json()['subscriber']['name'], 'Reader')
+        self.reader.refresh_from_db()
+        self.assertEqual(self.reader.name, 'Reader')
+        self.assertEqual(self.reader.language, 'en')
+
+    def test_unknown_email_cannot_use_login(self):
+        self.assertEqual(self.client.post('/api/v1/subscriptions/login/', {'email':'missing@example.com'}).status_code, 404)
 
     def test_unverified_and_expired_links_and_email_failure(self):
         self.assertEqual(self.client.post('/api/v1/subscriptions/', {'email':'new@example.com','name':'N'}).status_code, 202)
@@ -252,7 +275,7 @@ class RemoteMailTests(APITestCase):
         job=claimed.json()['jobs'][0]
         self.assertEqual(job['kind'],'verification')
         self.assertEqual(self.client.post('/api/v1/mail-worker/claim/',{}).json()['jobs'],[])
-        token=job['body'].split('#verify=')[1].split()[0]
+        token=job['body'].split('#verify=')[1].split('&')[0]
         receipt={key:job[key] for key in ['kind','id','lease']}
         receipt['sent']=True
         self.assertEqual(self.client.post('/api/v1/mail-worker/ack/',receipt,format='json').status_code,200)
