@@ -77,17 +77,25 @@ class ArticleAdmin(admin.ModelAdmin):
     actions_on_top = True
     actions_on_bottom = False
     fieldsets = (
-        ('中文版本', {
-            'fields': ('title', 'description', 'body'),
-            'description': '中文正文使用 Markdown，右侧预览会随输入实时更新。',
-        }),
-        ('English version', {
-            'fields': ('title_en', 'description_en', 'body_en'),
-            'description': 'Published articles require a complete English title, summary, and Markdown body.',
+        ('写文章', {
+            'fields': ('title', 'body'),
+            'description': '只需填写标题即可保存；正文可以稍后补充。支持 Markdown 实时预览。',
         }),
         ('发布设置', {
-            'fields': ('content_type', 'slug', 'series', 'status', 'published_at', 'updated_at'),
-            'description': '“已发布”且发布时间不晚于当前时间的文章会出现在公开 API。',
+            'fields': ('content_type', 'series', 'status'),
+        }),
+        ('摘要（可选）', {
+            'fields': ('description',), 'classes': ('collapse',),
+        }),
+        ('English version（可选）', {
+            'fields': ('title_en', 'description_en', 'body_en'),
+            'classes': ('collapse',),
+            'description': '可随时补充。未填写英文正文时，英文页面会提示暂时仅提供中文内容。',
+        }),
+        ('更多设置', {
+            'fields': ('slug', 'published_at', 'updated_at'),
+            'classes': ('collapse',),
+            'description': 'URL 标识自动生成；未来的发布时间表示定时发布。',
         }),
     )
     actions = ['publish', 'unpublish', 'duplicate']
@@ -124,8 +132,8 @@ class ArticleAdmin(admin.ModelAdmin):
 
     @admin.display(description='双语内容')
     def translation_status(self, obj):
-        complete = all((obj.title_en.strip(), obj.description_en.strip(), obj.body_en.strip()))
-        label = '完整' if complete else '待补充'
+        complete = bool(obj.body_en.strip())
+        label = '英文已提供' if complete else '仅中文'
         css_class = 'published' if complete else 'scheduled'
         return format_html('<span class="article-status article-status--{}">{}</span>', css_class, label)
 
@@ -141,17 +149,11 @@ class ArticleAdmin(admin.ModelAdmin):
 
     @admin.action(description='立即发布选中的文章', permissions=['change'])
     def publish(self, request, queryset):
-        ready_ids = [article.pk for article in queryset.select_related('series') if self._translation_complete(article)]
-        ready = queryset.filter(pk__in=ready_ids)
-        skipped = queryset.count() - len(ready_ids)
-        updated = ready.update(
+        updated = queryset.update(
             status=Article.Status.PUBLISHED,
-            published_at=timezone.now(),
-            updated_at=timezone.now(),
+            published_at=timezone.now(), updated_at=timezone.now(),
         )
         self.message_user(request, f'已发布 {updated} 篇文章。', messages.SUCCESS)
-        if skipped:
-            self.message_user(request, f'{skipped} 篇文章缺少英文版本，未发布。', messages.WARNING)
 
     @admin.action(description='将选中文章移回草稿', permissions=['change'])
     def unpublish(self, request, queryset):
@@ -168,9 +170,6 @@ class ArticleAdmin(admin.ModelAdmin):
 
     def response_change(self, request, obj):
         if '_publish' in request.POST:
-            if not self._translation_complete(obj):
-                self.message_user(request, '英文版本不完整，文章已保存但没有发布。', messages.ERROR)
-                return HttpResponseRedirect(reverse('admin:blog_article_change', args=[obj.pk]))
             obj.status = Article.Status.PUBLISHED
             obj.published_at = timezone.now()
             obj.save(update_fields=['status', 'published_at', 'updated_at'])
@@ -186,12 +185,6 @@ class ArticleAdmin(admin.ModelAdmin):
             self.message_user(request, '已创建草稿副本。', messages.SUCCESS)
             return HttpResponseRedirect(reverse('admin:blog_article_change', args=[duplicate.pk]))
         return super().response_change(request, obj)
-
-    @staticmethod
-    def _translation_complete(article):
-        article_complete = all((article.title_en.strip(), article.description_en.strip(), article.body_en.strip()))
-        series_complete = not article.series or bool(article.series.name_en.strip())
-        return article_complete and series_complete
 
     def _duplicate_article(self, article):
         base_slug = f'{article.slug}-copy'

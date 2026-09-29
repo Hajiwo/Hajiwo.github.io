@@ -19,6 +19,11 @@ class ArticleSerializer(serializers.ModelSerializer):
         ]
 
 class ArticleDetailSerializer(ArticleSerializer):
+    body_en = serializers.SerializerMethodField()
+
+    def get_body_en(self, obj):
+        return obj.body_en.strip() or 'Sorry, this article is currently only available in Chinese.'
+
     class Meta(ArticleSerializer.Meta):
         fields = ArticleSerializer.Meta.fields + ['body', 'body_en']
 

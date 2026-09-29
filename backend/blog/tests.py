@@ -167,3 +167,39 @@ class BlogAPITests(APITestCase):
         self.assertNotContains(self.client.get('/admin/'), 'Public notes')
         self.assertEqual(self.client.get('/admin/blog/article/').status_code, 403)
         self.assertEqual(self.client.post('/admin/blog/article/add/', {}).status_code, 403)
+
+    def test_title_only_publish_and_optional_translation(self):
+        from django.contrib.auth import get_user_model
+        self.client.force_login(get_user_model().objects.create_superuser('optional-owner', password='test-password'))
+        payload = {
+            'title': '只有标题', 'slug': 'title-only', 'content_type': 'article',
+            'status': 'published', 'published_at_0': '2026-01-01',
+            'published_at_1': '12:00:00', '_save': 'Save',
+        }
+        self.assertEqual(self.client.post('/admin/blog/article/add/', payload).status_code, 302)
+        article = Article.objects.get(slug='title-only')
+        self.assertEqual((article.body, article.description, article.body_en), ('', '', ''))
+        detail = self.client.get('/api/v1/articles/title-only/').json()
+        self.assertEqual(detail['body_en'], 'Sorry, this article is currently only available in Chinese.')
+        payload.update(title_en='Title only', body_en='English content added later')
+        self.assertEqual(self.client.post(f'/admin/blog/article/{article.pk}/change/', payload).status_code, 302)
+        self.assertEqual(self.client.get('/api/v1/articles/title-only/').json()['body_en'], 'English content added later')
+
+    def test_publish_actions_without_english_or_summary(self):
+        from django.contrib.auth import get_user_model
+        self.client.force_login(get_user_model().objects.create_superuser('publish-owner', password='test-password'))
+        draft = Article.objects.create(title='待发布', slug='optional-draft')
+        response = self.client.post('/admin/blog/article/', {
+            'action': 'publish', '_selected_action': [draft.pk],
+        })
+        self.assertEqual(response.status_code, 302)
+        draft.refresh_from_db()
+        self.assertEqual(draft.status, 'published')
+        response = self.client.post(f'/admin/blog/article/{draft.pk}/change/', {
+            'title': draft.title, 'slug': draft.slug, 'content_type': 'article',
+            'status': 'draft', 'published_at_0': '2026-01-01',
+            'published_at_1': '12:00:00', '_publish': 'Publish',
+        })
+        self.assertEqual(response.status_code, 302)
+        draft.refresh_from_db()
+        self.assertEqual(draft.status, 'published')
