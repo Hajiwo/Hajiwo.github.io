@@ -36,16 +36,16 @@ const isProjects = contentType === 'project';
 					<line x1="21" y1="21" x2="16" y2="16" />
 				</svg>
 			</span>
-			<label class="sr-only" for="article-search" data-i18n-zh={isProjects ? '搜索项目' : '搜索文章'} data-i18n-en={isProjects ? 'Search projects' : 'Search articles'}>{isProjects ? '搜索项目' : '搜索文章'}</label>
-			<input id="article-search" type="search" placeholder={isProjects ? '搜索项目...' : '搜索标题...'} data-i18n-placeholder-zh={isProjects ? '搜索项目...' : '搜索标题...'} data-i18n-placeholder-en={isProjects ? 'Search projects...' : 'Search titles...'} autocomplete="off" />
+			<label class="sr-only" for="article-search" data-i18n-zh={isProjects ? '搜索博客' : '搜索文章'} data-i18n-en={isProjects ? 'Search blogs' : 'Search articles'}>{isProjects ? '搜索博客' : '搜索文章'}</label>
+			<input id="article-search" type="search" placeholder={isProjects ? '搜索博客...' : '搜索标题...'} data-i18n-placeholder-zh={isProjects ? '搜索博客...' : '搜索标题...'} data-i18n-placeholder-en={isProjects ? 'Search blogs...' : 'Search titles...'} autocomplete="off" />
 			<kbd>/</kbd>
 		</div>
 
 		<ul class="article-list"></ul>
 
 		<div id="empty-state" hidden>
-			<h3 data-i18n-zh={isProjects ? '还没有找到相关项目' : '还没有找到相关文章'} data-i18n-en={isProjects ? 'No matching projects' : 'No matching articles'}>{isProjects ? '还没有找到相关项目' : '还没有找到相关文章'}</h3>
-			<p data-i18n-zh={isProjects ? '在后台发布项目报告后，它会显示在这里。' : '换个关键词，或试试其他系列。'} data-i18n-en={isProjects ? 'Project reports will appear here after publishing.' : 'Try another keyword or series.'}>{isProjects ? '在后台发布项目报告后，它会显示在这里。' : '换个关键词，或试试其他系列。'}</p>
+			<h3 data-i18n-zh={isProjects ? '还没有找到相关博客' : '还没有找到相关文章'} data-i18n-en={isProjects ? 'No matching blogs' : 'No matching articles'}>{isProjects ? '还没有找到相关博客' : '还没有找到相关文章'}</h3>
+			<p data-i18n-zh={isProjects ? '在后台发布博客后，它会显示在这里。' : '换个关键词，或试试其他系列。'} data-i18n-en={isProjects ? 'Blog posts will appear here after publishing.' : 'Try another keyword or series.'}>{isProjects ? '在后台发布博客后，它会显示在这里。' : '换个关键词，或试试其他系列。'}</p>
 			<button id="reset-search" type="button" data-i18n-zh="清除筛选" data-i18n-en="Clear filters">清除筛选</button>
 		</div>
 	</section>
@@ -188,11 +188,11 @@ const isProjects = contentType === 'project';
 			return;
 		}
 		emptyTitle.textContent = isEnglish()
-			? (contentType === 'project' ? 'No matching projects' : 'No matching articles')
-			: (contentType === 'project' ? '还没有找到相关项目' : '还没有找到相关文章');
+			? (contentType === 'project' ? 'No matching blogs' : 'No matching articles')
+			: (contentType === 'project' ? '还没有找到相关博客' : '还没有找到相关文章');
 		emptyDescription.textContent = isEnglish()
-			? (contentType === 'project' ? 'Project reports will appear here after publishing.' : 'Try another keyword or series.')
-			: (contentType === 'project' ? '在后台发布项目报告后，它会显示在这里。' : '换个关键词，或试试其他系列。');
+			? (contentType === 'project' ? 'Blog posts will appear here after publishing.' : 'Try another keyword or series.')
+			: (contentType === 'project' ? '在后台发布博客后，它会显示在这里。' : '换个关键词，或试试其他系列。');
 		resetButton.hidden = contentType === 'project' && rows().length === 0;
 	}
 
@@ -351,7 +351,7 @@ const isProjects = contentType === 'project';
 		if (resultCount) {
 			resultCount.dataset.count = String(visible);
 			resultCount.textContent = isEnglish()
-				? `${visible} ${contentType === 'project' ? 'project' : 'article'}${visible === 1 ? '' : 's'}`
+				? `${visible} ${contentType === 'project' ? 'blog' : 'article'}${visible === 1 ? '' : 's'}`
 				: `共 ${visible} 篇`;
 		}
 		emptyState.hidden = visible > 0;

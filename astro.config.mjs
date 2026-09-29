@@ -9,7 +9,7 @@ export default defineConfig({
   devToolbar: {
     enabled: false,
   },
-  integrations: [sitemap({ filter: (page) => !/^\/(articles|blog)(\/|$)/.test(new URL(page).pathname) })],
+  integrations: [sitemap({ filter: (page) => !/^\/(articles|blog|projects)(\/|$)/.test(new URL(page).pathname) })],
 
   fonts: [
       {

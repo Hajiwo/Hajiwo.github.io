@@ -2,7 +2,7 @@
 import { SITE_TITLE } from '../consts';
 import Logo from '../img/logo.png';
 const about = Astro.url.pathname.startsWith('/about');
-const projects = Astro.url.pathname === '/' || Astro.url.pathname.startsWith('/projects');
+const blogs = Astro.url.pathname === '/' || Astro.url.pathname.startsWith('/blogs') || Astro.url.pathname.startsWith('/projects');
 ---
 <a class="skip-link" href="#main" data-i18n-zh="跳至正文" data-i18n-en="Skip to content">跳至正文</a>
 <header class="site-header">
@@ -11,11 +11,11 @@ const projects = Astro.url.pathname === '/' || Astro.url.pathname.startsWith('/p
     <span class="brand-text">{SITE_TITLE}</span>
   </a>
   <nav aria-label="主导航" data-i18n-aria-label-zh="主导航" data-i18n-aria-label-en="Main navigation">
-    <a href="/" class="nav-item" data-nav="projects" aria-current={projects ? 'page' : undefined}>
+    <a href="/" class="nav-item" data-nav="blogs" aria-current={blogs ? 'page' : undefined}>
       <svg class="nav-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
         <path d="M4 7.5h6l2-2h8v13H4z"/><path d="M8 12h8M8 15h5"/>
       </svg>
-      <span data-i18n-zh="项目" data-i18n-en="Projects">项目</span>
+      <span data-i18n-zh="博客" data-i18n-en="Blogs">博客</span>
     </a>
     <a href="/about/" class="nav-item" aria-current={about ? 'page' : undefined}>
       <svg class="nav-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
