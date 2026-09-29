@@ -1,29 +1,31 @@
 ---
 import { SITE_TITLE } from '../consts';
 import Logo from '../img/logo.png';
+const readingSite = /^\/articles(?:\/|$)/.test(Astro.url.pathname);
+const home = readingSite ? '/articles/' : '/';
 const about = Astro.url.pathname.startsWith('/about');
 const blogs = Astro.url.pathname === '/' || Astro.url.pathname.startsWith('/blogs') || Astro.url.pathname.startsWith('/projects');
 ---
 <a class="skip-link" href="#main" data-i18n-zh="跳至正文" data-i18n-en="Skip to content">跳至正文</a>
 <header class="site-header">
-  <a class="brand" href="/">
+  <a class="brand" href={home}>
     <img class="brand-logo" src={Logo.src} alt="" width="42" height="42" />
-    <span class="brand-text">{SITE_TITLE}</span>
+    <span class="brand-text">{readingSite ? 'Articles' : SITE_TITLE}</span>
   </a>
   <nav aria-label="主导航" data-i18n-aria-label-zh="主导航" data-i18n-aria-label-en="Main navigation">
-    <a href="/" class="nav-item" data-nav="blogs" aria-current={blogs ? 'page' : undefined}>
+    <a href={home} class="nav-item" data-nav={readingSite ? 'articles' : 'blogs'} aria-current={readingSite || blogs ? 'page' : undefined}>
       <svg class="nav-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
         <path d="M4 7.5h6l2-2h8v13H4z"/><path d="M8 12h8M8 15h5"/>
       </svg>
-      <span data-i18n-zh="博客" data-i18n-en="Blogs">博客</span>
+      <span data-i18n-zh={readingSite ? '文章' : '博客'} data-i18n-en={readingSite ? 'Articles' : 'Blogs'}>{readingSite ? '文章' : '博客'}</span>
     </a>
-    <a href="/about/" class="nav-item" aria-current={about ? 'page' : undefined}>
+    {!readingSite && <a href="/about/" class="nav-item" aria-current={about ? 'page' : undefined}>
       <svg class="nav-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
         <circle cx="12" cy="8" r="4" fill="#b59a55" stroke="currentColor" />
         <path d="M6 21v-2a4 4 0 0 1 4-4h4a4 4 0 0 1 4 4v2" />
       </svg>
       <span data-i18n-zh="关于" data-i18n-en="About">关于</span>
-    </a>
+    </a>}
     <button id="language-toggle" class="language-toggle" type="button" aria-label="Switch to English">EN</button>
   </nav>
 </header>
@@ -54,7 +56,7 @@ const blogs = Astro.url.pathname === '/' || Astro.url.pathname.startsWith('/blog
 			toggle.setAttribute('aria-label', language === 'zh' ? 'Switch to English' : '切换到中文');
 			toggle.title = language === 'zh' ? 'Switch to English' : '切换到中文';
 		}
-		if (persist) localStorage.setItem('site-language', language);
+		if (persist) localStorage.setItem(document.documentElement.dataset.languageKey || 'site-language', language);
 		window.dispatchEvent(new CustomEvent('languagechange', { detail: { language } }));
 	}
 

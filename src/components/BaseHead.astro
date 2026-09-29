@@ -12,7 +12,8 @@ interface Props {
 	image?: ImageMetadata;
 }
 
-const hiddenContent = Astro.url.pathname.startsWith('/articles') || Astro.url.pathname.startsWith('/blog') || Astro.url.pathname.startsWith('/projects');
+const readingSite = /^\/articles(?:\/|$)/.test(Astro.url.pathname);
+const hiddenContent = /^\/(articles|blog|projects)(?:\/|$)/.test(Astro.url.pathname);
 const canonicalURL = new URL(Astro.url.pathname, Astro.site);
 
 const { title, description, image = Logo } = Astro.props;
@@ -23,7 +24,9 @@ const { title, description, image = Logo } = Astro.props;
 <meta name="viewport" content="width=device-width,initial-scale=1" />
 <script is:inline>
 	(() => {
-		const saved = localStorage.getItem('site-language');
+		const key = /^\/articles(?:\/|$)/.test(location.pathname) ? 'articles-language' : 'site-language';
+		document.documentElement.dataset.languageKey = key;
+		const saved = localStorage.getItem(key);
 		const language = saved === 'en' || saved === 'zh' ? saved : 'zh';
 		document.documentElement.dataset.language = language;
 		document.documentElement.lang = language === 'zh' ? 'zh-CN' : 'en';
@@ -31,7 +34,7 @@ const { title, description, image = Logo } = Astro.props;
 </script>
 <link rel="icon" type="image/png" href={Logo.src} />
 <link rel="apple-touch-icon" href={Logo.src} />
-<link rel="sitemap" href="/sitemap-index.xml" />
+{!readingSite && <link rel="sitemap" href="/sitemap-index.xml" />}
 <meta name="generator" content={Astro.generator} />
 {hiddenContent && <meta name="robots" content="noindex, nofollow" />}
 

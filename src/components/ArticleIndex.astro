@@ -279,7 +279,7 @@ const isProjects = contentType === 'project';
 
 		const link = document.createElement('a');
 		link.className = 'article-link';
-		link.href = `/blog/article/?slug=${encodeURIComponent(article.slug)}`;
+		link.href = `${contentType === 'article' ? '/articles/article/' : '/blog/article/'}?slug=${encodeURIComponent(article.slug)}`;
 
 		const title = document.createElement('h3');
 		title.className = 'article-title';
