@@ -70,8 +70,8 @@ def deliver_verifications(limit=20):
         ).exclude(delivery_token='').update(claimed_at=now, lease_token=lease, attempts=F('attempts') + 1):
             continue
         login = SubscriberLogin.objects.select_related('subscriber').get(pk=pk)
-        subject, body = verification_message(login.delivery_token)
         try:
+            subject, body = verification_message(login.delivery_token)
             if EmailMessage(subject, body, settings.DEFAULT_FROM_EMAIL, [login.subscriber.email]).send() != 1:
                 raise RuntimeError('Email backend returned no delivery')
             updated = SubscriberLogin.objects.filter(pk=pk, lease_token=lease, sent_at__isnull=True).update(
@@ -95,24 +95,31 @@ def deliver_pending(limit=100):
     ids = list(Notification.objects.filter(eligible, sent_at__isnull=True, cancelled=False, next_attempt_at__lte=now).values_list('pk', flat=True)[:limit])
     sent = 0
     for pk in ids:
-        if not Notification.objects.filter(eligible, pk=pk, sent_at__isnull=True).update(claimed_at=now, attempts=F('attempts') + 1):
+        lease = uuid.uuid4()
+        if not Notification.objects.filter(eligible, pk=pk, sent_at__isnull=True, cancelled=False).update(
+                claimed_at=now, lease_token=lease, attempts=F('attempts') + 1):
             continue
         item = Notification.objects.select_related('subscriber', 'article', 'topic', 'comment', 'post').get(pk=pk)
-        payload = notification_message(item)
-        if not payload:
-            Notification.objects.filter(pk=pk).update(cancelled=True, claimed_at=None)
-            continue
-        subscriber = item.subscriber
-        subject, body = payload
         try:
+            payload = notification_message(item)
+            if not payload:
+                Notification.objects.filter(pk=pk, lease_token=lease).update(
+                    cancelled=True, claimed_at=None, lease_token=None,
+                )
+                continue
+            subscriber = item.subscriber
+            subject, body = payload
             if EmailMessage(subject, body, settings.DEFAULT_FROM_EMAIL, [subscriber.email]).send() != 1:
                 raise RuntimeError('Email backend returned no delivery')
-            Notification.objects.filter(pk=pk).update(sent_at=timezone.now(), claimed_at=None, last_error='')
-            sent += 1
+            sent += Notification.objects.filter(pk=pk, lease_token=lease, sent_at__isnull=True).update(
+                sent_at=timezone.now(), claimed_at=None, lease_token=None, last_error='',
+            )
         except Exception as exc:
             # Do not store SMTP credentials or server responses in the admin/logs.
-            Notification.objects.filter(pk=pk).update(claimed_at=None, last_error=type(exc).__name__,
-                next_attempt_at=timezone.now() + timedelta(minutes=min(60, 2 ** min(item.attempts, 6))))
+            Notification.objects.filter(pk=pk, lease_token=lease, sent_at__isnull=True).update(
+                claimed_at=None, lease_token=None, last_error=type(exc).__name__,
+                next_attempt_at=timezone.now() + timedelta(minutes=min(60, 2 ** min(item.attempts, 6))),
+            )
     return sent
 
 

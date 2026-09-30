@@ -204,6 +204,15 @@ class CommunityTests(APITestCase):
         self.assertEqual(deliver_pending(),0)
         self.assertEqual(Notification.objects.filter(cancelled=True).count(),2)
 
+    def test_message_build_failure_releases_notification_lease(self):
+        collect_articles()
+        with patch('blog.notifications.notification_message', side_effect=RuntimeError('bad template')):
+            self.assertEqual(deliver_pending(), 0)
+        pending = Notification.objects.filter(sent_at__isnull=True).first()
+        self.assertIsNone(pending.claimed_at)
+        self.assertIsNone(pending.lease_token)
+        self.assertEqual(pending.last_error, 'RuntimeError')
+
     def test_admin_manages_community(self):
         from django.contrib.auth import get_user_model
         self.client.force_login(get_user_model().objects.create_superuser('owner',password='test-password'))
