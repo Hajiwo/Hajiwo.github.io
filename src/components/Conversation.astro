@@ -5,7 +5,7 @@ const {kind} = Astro.props;
 const readingSite = Astro.url.pathname.startsWith('/articles/');
 ---
 <section class="comments" data-conversation data-kind={kind} data-reading-site={String(readingSite)}>
-  <div class="comments-heading"><h2 data-i18n-zh={kind === 'comments' ? '评论' : '讨论'} data-i18n-en={kind === 'comments' ? 'Comments' : 'Discussion'}>{kind === 'comments' ? '评论' : '讨论'}</h2><span role="status" data-thread-status></span></div>
+  <div class="comments-heading"><h2 data-i18n-zh={kind === 'comments' ? '评论' : '讨论'} data-i18n-en={kind === 'comments' ? 'Comments' : 'Discussion'}>{kind === 'comments' ? '评论' : '讨论'}</h2><div class="thread-heading-actions"><span role="status" data-thread-status></span>{kind === 'discussion' && <button type="button" class="quiet-button latest-reply-button" data-thread-latest hidden data-i18n-zh="跳到最新回复 ↓" data-i18n-en="Latest reply ↓">跳到最新回复 ↓</button>}</div></div>
   <div class="comment-list" data-thread-list></div>
   <button type="button" class="quiet-button" data-thread-more hidden data-i18n-zh="加载更多" data-i18n-en="Load more">加载更多</button>
   <form class="comment-form" data-thread-form>
@@ -27,6 +27,7 @@ if (root) {
   const list = root.querySelector<HTMLElement>('[data-thread-list]')!;
   const form = root.querySelector<HTMLFormElement>('[data-thread-form]')!;
   const more = root.querySelector<HTMLButtonElement>('[data-thread-more]')!;
+  const latest = root.querySelector<HTMLButtonElement>('[data-thread-latest]');
   const status = root.querySelector<HTMLElement>('[data-thread-status]')!;
   const postStatus = root.querySelector<HTMLElement>('[data-post-status]')!;
   const replyContext = root.querySelector<HTMLElement>('[data-reply-context]')!;
@@ -60,6 +61,7 @@ if (root) {
       const body = document.createElement('div'); body.className = 'prose community-prose'; renderMarkdown(body, row.body); article.append(body);
       const button = document.createElement('button'); button.type = 'button'; button.className = 'quiet-button'; button.textContent = tr('回复', 'Reply'); button.addEventListener('click', () => reply(row.id)); article.append(button); list.append(article);
     }
+    if (latest) latest.hidden = rows.length === 0;
   }
   async function load() {
     if (loading) return; loading = true; more.disabled = true;
@@ -87,6 +89,15 @@ if (root) {
     finally { posting = false; submit.disabled = false; }
   });
   more.addEventListener('click', () => { pages++; load(); });
+  latest?.addEventListener('click', async () => {
+    if (loading) return; latest.disabled = true;
+    try {
+      const first = await request(endpoint); pages = Math.max(1, Math.ceil(first.count / 20)); await load();
+      const target = list.lastElementChild as HTMLElement | null;
+      if (target) { target.classList.add('latest-reply-target'); target.scrollIntoView({behavior: 'smooth', block: 'center'}); window.setTimeout(() => target.classList.remove('latest-reply-target'), 1600); }
+    } catch (error) { status.textContent = (error as Error).message; }
+    finally { latest.disabled = false; }
+  });
   root.querySelector('[data-cancel-reply]')!.addEventListener('click', () => reply(null));
   window.addEventListener('languagechange', render);
   if (readingSite) { fillIdentity(form); window.addEventListener('readerchange', () => fillIdentity(form)); }

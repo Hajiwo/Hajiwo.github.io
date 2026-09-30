@@ -119,12 +119,20 @@ def deliver_pending(limit=100):
 def notification_message(item):
     subscriber = item.subscriber
     now = timezone.now()
+    unsubscribe = f'{settings.ARTICLES_SITE_URL}/subscribe/#unsubscribe={subscriber.unsubscribe_token}'
+    if item.kind == 'welcome':
+        if not subscriber.active or not subscriber.verified_at:
+            return None
+        if subscriber.language == 'en':
+            return ('Subscription successful · Articles',
+                    f'Hi {subscriber.name}, your subscription is active.\n\nManage notification preferences:\n{settings.ARTICLES_SITE_URL}/subscribe/\n\nUnsubscribe:\n{unsubscribe}')
+        return ('订阅成功 · Articles',
+                f'{subscriber.name}，你已成功订阅并登录。\n\n管理通知偏好：\n{settings.ARTICLES_SITE_URL}/subscribe/\n\n退订：\n{unsubscribe}')
     visible = (not item.article_id or (item.article.status == 'published' and item.article.published_at <= now and item.article.content_type == 'article')) and (not item.topic_id or item.topic.visible) and (not item.comment_id or item.comment.approved) and (not item.post_id or item.post.visible)
     if not visible or not subscriber.active or not subscriber.verified_at or not getattr(subscriber, item.kind):
         return None
     labels = {'articles': ('新文章', 'New article'), 'discussions': ('讨论更新', 'Discussion update'), 'replies': ('你收到了回复', 'You received a reply')}
     label = labels[item.kind][subscriber.language == 'en']
-    unsubscribe = f'{settings.ARTICLES_SITE_URL}/subscribe/#unsubscribe={subscriber.unsubscribe_token}'
     subject = ' '.join(f'{label} · {item.title}'.splitlines())[:240]
     body = f'{label}: {item.title}\n\n{settings.ARTICLES_SITE_URL}{item.path}\n\n退订 / Unsubscribe:\n{unsubscribe}'
     return subject, body

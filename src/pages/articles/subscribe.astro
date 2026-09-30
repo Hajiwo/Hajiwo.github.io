@@ -7,7 +7,7 @@ import Footer from '../../components/Footer.astro';
 <main id="main" class="community-page subscription-page">
   <a href="/articles/" class="article-back" data-i18n-zh="← 返回文章" data-i18n-en="← Back to articles">← 返回文章</a>
   <h1 data-i18n-zh="订阅与通知" data-i18n-en="Subscription & notifications">订阅与通知</h1>
-  <p data-i18n-zh="验证一次邮箱，这个浏览器就会记住你。" data-i18n-en="Verify your email once. This browser will remember you.">验证一次邮箱，这个浏览器就会记住你。</p>
+  <p data-i18n-zh="订阅或登录后，这个浏览器会自动记住你。" data-i18n-en="After subscribing or signing in, this browser will remember you.">订阅或登录后，这个浏览器会自动记住你。</p>
   <p role="status" data-subscription-status></p>
   <section data-confirm hidden class="comment-form">
     <p data-confirm-copy></p><button type="button" class="primary-button" data-confirm-button></button>
@@ -105,15 +105,18 @@ signup.addEventListener('submit', async event => {
   try {
     const data = new FormData(signup);
     const result = await request('/subscriptions/', 'POST', {name: data.get('name'), email: data.get('email'), language: tr('zh', 'en')});
-    status.textContent = result.status === 'verification_queued' ? tr('正在发送验证邮件，通常一分钟内到达。请检查收件箱和垃圾邮件；链接在收到后 30 分钟内有效。', 'Your verification email is being sent and normally arrives within a minute. Check your inbox and spam; the link is valid for 30 minutes after delivery.') : tr('验证邮件已发送。请打开邮箱中的链接（30 分钟内有效）。', 'Verification email sent. Open its link within 30 minutes.');
-    lookupState = 'exists'; renderLookup();
+    remember(result);
+    status.textContent = tr('订阅成功！已自动登录，成功通知邮件正在发送。', 'Subscribed and signed in. A confirmation email is on its way.');
+    lookupState = 'exists'; render(); renderLookup();
   } catch (error) { status.textContent = (error as Error).message; renderLookup(); }
 });
 loginButton.addEventListener('click', async () => {
   if (lookupState !== 'exists') return; subscribeButton.disabled = true; loginButton.disabled = true;
   try {
     const result = await request('/subscriptions/login/', 'POST', {email: emailInput.value.trim(), language: tr('zh', 'en')});
-    status.textContent = result.status === 'login_queued' ? tr('登录邮件正在发送，通常一分钟内到达。请检查收件箱和垃圾邮件。', 'Your sign-in email is being sent and normally arrives within a minute. Check your inbox and spam.') : tr('登录邮件已发送。', 'Sign-in email sent.');
+    remember(result);
+    status.textContent = tr('登录成功！已恢复原账号和通知偏好。', 'Signed in! Your original account and preferences are restored.');
+    render();
   } catch (error) { status.textContent = (error as Error).message; }
   finally { renderLookup(); }
 });

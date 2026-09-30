@@ -159,7 +159,7 @@ class DiscussionPost(models.Model):
 class Notification(models.Model):
     subscriber = models.ForeignKey(Subscriber, on_delete=models.CASCADE)
     event_key = models.CharField(max_length=100)
-    kind = models.CharField(max_length=16, choices=[('articles', '新文章'), ('discussions', '讨论更新'), ('replies', '回复')])
+    kind = models.CharField(max_length=16, choices=[('welcome', '订阅成功'), ('articles', '新文章'), ('discussions', '讨论更新'), ('replies', '回复')])
     title = models.CharField(max_length=200)
     path = models.CharField(max_length=500)
     article = models.ForeignKey(Article, null=True, blank=True, on_delete=models.CASCADE)

@@ -54,20 +54,19 @@ class CommunityTests(APITestCase):
         self.assertIn(self.client.post(self.comments, {'author':'A','body':'B'}).status_code, [401,403])
         self.assertEqual(Comment.objects.count(), 1)
 
-    def test_verification_one_use_and_case_insensitive_email(self):
+    def test_subscription_signs_in_immediately_and_case_insensitive_email(self):
         response = self.client.post('/api/v1/subscriptions/', {'email':'New@Example.com','name':'New name','language':'en'})
-        self.assertEqual(response.status_code, 202)
-        self.assertEqual(response.json(), {'status': 'verification_queued'})
+        self.assertEqual(response.status_code, 201)
+        self.assertEqual(response.json()['status'], 'subscribed')
+        self.assertEqual(response['Cache-Control'], 'no-store')
+        self.assertEqual(response.json()['subscriber']['name'], 'New name')
         self.assertEqual(Subscriber.objects.count(), 3)
-        self.assertEqual(deliver_verifications(), 1)
-        token = mail.outbox[-1].body.split('#verify=')[1].split('&')[0]
-        verified = self.client.post('/api/v1/subscriptions/verify/', {'token':token})
-        self.assertEqual(verified.status_code, 200)
-        self.assertEqual(verified['Cache-Control'], 'no-store')
-        self.assertEqual(verified.json()['subscriber']['name'], 'New name')
-        self.assertEqual(self.client.post('/api/v1/subscriptions/verify/', {'token':token}).status_code, 400)
-        self.assertFalse(SubscriberSession.objects.filter(token_hash=verified.json()['token']).exists())
-        self.client.credentials(HTTP_AUTHORIZATION='Bearer '+verified.json()['token'])
+        subscriber = Subscriber.objects.get(email='new@example.com')
+        self.assertTrue(subscriber.active)
+        self.assertIsNotNone(subscriber.verified_at)
+        self.assertFalse(SubscriberLogin.objects.exists())
+        self.assertEqual(Notification.objects.get(subscriber=subscriber).kind, 'welcome')
+        self.client.credentials(HTTP_AUTHORIZATION='Bearer '+response.json()['token'])
         self.assertEqual(self.client.get('/api/v1/subscriptions/me/').status_code, 200)
         self.assertEqual(self.client.delete('/api/v1/subscriptions/me/').status_code, 204)
         self.assertIn(self.client.get('/api/v1/subscriptions/me/').status_code, [401,403])
@@ -80,27 +79,29 @@ class CommunityTests(APITestCase):
         self.assertEqual(self.client.post('/api/v1/subscriptions/account/', {'email':'new@example.com'}).json(), {'exists': False})
         self.assertEqual(self.client.post('/api/v1/subscriptions/', {'email':'Reader@Example.com','name':'Changed'}).status_code, 409)
         response = self.client.post('/api/v1/subscriptions/login/', {'email':'Reader@Example.com','language':'en'})
-        self.assertEqual(response.status_code, 202)
-        self.assertEqual(response.json(), {'status': 'login_queued'})
-        self.assertEqual(deliver_verifications(), 1)
-        self.assertIn('Sign in to Articles', mail.outbox[-1].subject)
-        self.assertIn('&mode=login', mail.outbox[-1].body)
-        token = mail.outbox[-1].body.split('#verify=')[1].split('&')[0]
-        verified = self.client.post('/api/v1/subscriptions/verify/', {'token':token})
-        self.assertEqual(verified.status_code, 200)
-        self.assertEqual(verified.json()['subscriber']['name'], 'Reader')
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()['status'], 'signed_in')
+        self.assertEqual(response.json()['subscriber']['name'], 'Reader')
+        self.assertEqual(len(mail.outbox), 0)
+        self.assertTrue(SubscriberSession.objects.filter(token_hash=digest(response.json()['token'])).exists())
         self.reader.refresh_from_db()
         self.assertEqual(self.reader.name, 'Reader')
         self.assertEqual(self.reader.language, 'en')
 
+        self.client.credentials(HTTP_AUTHORIZATION='Bearer '+response.json()['token'])
+        self.assertEqual(self.client.get('/api/v1/subscriptions/me/').status_code, 200)
+
     def test_unknown_email_cannot_use_login(self):
         self.assertEqual(self.client.post('/api/v1/subscriptions/login/', {'email':'missing@example.com'}).status_code, 404)
 
-    def test_unverified_and_expired_links_and_email_failure(self):
-        self.assertEqual(self.client.post('/api/v1/subscriptions/', {'email':'new@example.com','name':'N'}).status_code, 202)
+    def test_legacy_verification_links_and_email_failure(self):
+        pending = Subscriber.objects.create(email='new@example.com', name='N')
+        SubscriberLogin.objects.create(
+            subscriber=pending, token_hash=digest('subscribe_pending'), name='N',
+            expires_at=timezone.now()+timedelta(hours=1), delivery_token='subscribe_pending',
+        )
         with patch('blog.notifications.EmailMessage.send', side_effect=RuntimeError('SMTP failure')):
             self.assertEqual(deliver_verifications(), 0)
-        pending = Subscriber.objects.get(email='new@example.com')
         self.assertFalse(pending.active)
         self.assertIsNone(pending.verified_at)
         queued = SubscriberLogin.objects.get()
@@ -255,7 +256,7 @@ class RemoteMailTests(APITestCase):
         self.client.credentials(HTTP_AUTHORIZATION=self.worker_key)
 
     def subscribe(self):
-        return self.client.post('/api/v1/subscriptions/', {'name':'Remote reader', 'email':'remote@example.com'})
+        return self.client.post('/api/v1/subscriptions/', {'name':'Remote reader', 'email':'remote@example.com', 'language':'en'})
 
     def test_worker_requires_secret_and_rejects_get(self):
         self.assertEqual(self.client.post('/api/v1/mail-worker/claim/', {}).status_code,403)
@@ -264,26 +265,22 @@ class RemoteMailTests(APITestCase):
         self.worker()
         self.assertEqual(self.client.get('/api/v1/mail-worker/claim/').status_code,405)
 
-    def test_queued_verification_and_single_lease(self):
+    def test_queued_welcome_notification_and_single_lease(self):
         response=self.subscribe()
-        self.assertEqual(response.status_code,202)
-        self.assertEqual(response.json(),{'status':'verification_queued'})
+        self.assertEqual(response.status_code,201)
+        self.assertEqual(response.json()['status'],'subscribed')
         self.assertEqual(len(mail.outbox),0)
         self.worker()
         claimed=self.client.post('/api/v1/mail-worker/claim/', {})
         self.assertEqual(claimed['Cache-Control'],'no-store, private')
         job=claimed.json()['jobs'][0]
-        self.assertEqual(job['kind'],'verification')
+        self.assertEqual(job['kind'],'notification')
+        self.assertIn('Subscription successful', job['subject'])
         self.assertEqual(self.client.post('/api/v1/mail-worker/claim/',{}).json()['jobs'],[])
-        token=job['body'].split('#verify=')[1].split('&')[0]
         receipt={key:job[key] for key in ['kind','id','lease']}
         receipt['sent']=True
         self.assertEqual(self.client.post('/api/v1/mail-worker/ack/',receipt,format='json').status_code,200)
-        login=SubscriberLogin.objects.get()
-        self.assertEqual(login.delivery_token,'')
-        self.assertIsNotNone(login.sent_at)
-        self.client.credentials()
-        self.assertEqual(self.client.post('/api/v1/subscriptions/verify/',{'token':token}).status_code,200)
+        self.assertIsNotNone(Notification.objects.get(kind='welcome').sent_at)
 
     def test_failed_delivery_retries_and_stale_ack_rejected(self):
         self.subscribe();self.worker()
@@ -291,7 +288,7 @@ class RemoteMailTests(APITestCase):
         receipt={key:job[key] for key in ['kind','id','lease']};receipt['sent']=False
         self.assertEqual(self.client.post('/api/v1/mail-worker/ack/',receipt,format='json').status_code,200)
         self.assertEqual(self.client.post('/api/v1/mail-worker/claim/',{}).json()['jobs'],[])
-        SubscriberLogin.objects.update(next_attempt_at=timezone.now())
+        Notification.objects.update(next_attempt_at=timezone.now())
         retried=self.client.post('/api/v1/mail-worker/claim/',{}).json()['jobs'][0]
         self.assertNotEqual(job['lease'],retried['lease'])
         receipt['sent']=True
@@ -308,7 +305,7 @@ class RemoteMailTests(APITestCase):
     def test_abandoned_claim_is_recovered(self):
         self.subscribe();self.worker()
         job=self.client.post('/api/v1/mail-worker/claim/',{}).json()['jobs'][0]
-        SubscriberLogin.objects.update(claimed_at=timezone.now()-timedelta(minutes=11))
+        Notification.objects.update(claimed_at=timezone.now()-timedelta(minutes=11))
         retried=self.client.post('/api/v1/mail-worker/claim/',{}).json()['jobs'][0]
         self.assertEqual(job['id'],retried['id'])
         self.assertNotEqual(job['lease'],retried['lease'])

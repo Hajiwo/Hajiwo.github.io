@@ -1,4 +1,4 @@
-"""Subscriber identity is proved by a one-use email link, never by a posted email."""
+"""Subscriber sessions and community API endpoints."""
 import hashlib
 import secrets
 from datetime import timedelta
@@ -13,7 +13,7 @@ from rest_framework.response import Response
 from rest_framework.throttling import AnonRateThrottle
 from django.shortcuts import get_object_or_404
 from django.db.models import Count, Q
-from .models import Subscriber, SubscriberLogin, SubscriberSession, Topic, DiscussionPost
+from .models import Subscriber, SubscriberLogin, SubscriberSession, Topic, DiscussionPost, Notification
 
 
 def digest(token):
@@ -86,6 +86,14 @@ def queue_verification(subscriber, language, mode):
     )
 
 
+def session_payload(subscriber, status_name):
+    token = secrets.token_urlsafe(32)
+    SubscriberSession.objects.create(
+        subscriber=subscriber, token_hash=digest(token), expires_at=timezone.now() + timedelta(days=180),
+    )
+    return {'status': status_name, 'token': token, 'subscriber': SubscriberSerializer(subscriber).data}
+
+
 @api_view(['POST'])
 @throttle_classes([AccountLookupThrottle])
 def subscription_account(request):
@@ -112,12 +120,22 @@ def subscribe(request):
     if Subscriber.objects.filter(email__iexact=email).exists():
         cache.delete(key)
         return Response({'detail': 'Account already exists. Sign in instead.'}, status=409)
-    subscriber, created = Subscriber.objects.get_or_create(email=email, defaults={'name': values['name']})
-    if not created:
-        cache.delete(key)
-        return Response({'detail': 'Account already exists. Sign in instead.'}, status=409)
-    queue_verification(subscriber, values['language'], 'subscribe')
-    return Response({'status': 'verification_queued'}, status=202)
+    now = timezone.now()
+    with transaction.atomic():
+        subscriber, created = Subscriber.objects.get_or_create(email=email, defaults={
+            'name': values['name'], 'language': values['language'], 'active': True, 'verified_at': now,
+        })
+        if not created:
+            cache.delete(key)
+            return Response({'detail': 'Account already exists. Sign in instead.'}, status=409)
+        payload = session_payload(subscriber, 'subscribed')
+        Notification.objects.create(
+            subscriber=subscriber, event_key=f'welcome:{subscriber.pk}', kind='welcome',
+            title='Articles', path='/subscribe/',
+        )
+    response = Response(payload, status=201)
+    response['Cache-Control'] = 'no-store'
+    return response
 
 
 @api_view(['POST'])
@@ -129,15 +147,22 @@ def login(request):
     email = values['email'].casefold()
     if not settings.SUBSCRIPTIONS_ENABLED:
         return Response({'detail': 'Email subscriptions are not configured yet.'}, status=503)
-    key = f'subscribe:{digest(email)}'
+    key = f'login:{digest(email)}'
     if not cache.add(key, True, 60):
         return Response({'detail': 'Please wait one minute before requesting another email.'}, status=429)
     subscriber = Subscriber.objects.filter(email__iexact=email).first()
     if not subscriber:
         cache.delete(key)
         return Response({'detail': 'Account does not exist. Subscribe first.'}, status=404)
-    queue_verification(subscriber, values['language'], 'login')
-    return Response({'status': 'login_queued'}, status=202)
+    update_fields = ['language']
+    subscriber.language = values['language']
+    if subscriber.verified_at is None:
+        subscriber.verified_at = timezone.now()
+        update_fields.append('verified_at')
+    subscriber.save(update_fields=update_fields)
+    response = Response(session_payload(subscriber, 'signed_in'))
+    response['Cache-Control'] = 'no-store'
+    return response
 
 
 @api_view(['POST'])
