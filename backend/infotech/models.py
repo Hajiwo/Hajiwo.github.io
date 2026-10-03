@@ -3,6 +3,10 @@ class Course(models.Model):
     class Category(models.TextChoices):
         EE = 'ee', 'EE module'
         CS = 'cs', 'CS module'
+        SEMINAR = 'seminar', 'Seminar'
+        LAB = 'lab', 'Lab'
+        NON_TECH = 'non-tech', 'Non-tech'
+        BASIC = 'basic', 'Basic'
     class Difficulty(models.TextChoices):
         HARD = 'hard', 'Hard'
         MEDIUM = 'medium', 'Medium'
@@ -16,7 +20,7 @@ class Course(models.Model):
         WINTER = 'winter', 'Winter semester'
         SUMMER = 'summer', 'Summer semester'
     name = models.CharField(max_length=200)
-    category = models.CharField(max_length=2, choices=Category.choices)
+    category = models.CharField(max_length=8, choices=Category.choices)
     difficulty = models.CharField('Exam difficulty', max_length=6, choices=Difficulty.choices)
     exam_form = models.CharField(max_length=6, choices=ExamForm.choices)
     description = models.TextField(max_length=5000)
@@ -45,4 +49,3 @@ class Tip(models.Model):
         ordering = ['pk']
     def __str__(self):
         return self.title
-

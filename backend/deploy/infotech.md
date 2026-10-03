@@ -17,12 +17,15 @@ Set in the server's existing `backend/.env`:
 
 ```dotenv
 INFOTECH_ENABLED=true
+INFOTECH_REQUIRE_PASSWORD=false
 INFOTECH_PASSWORD=<shared-access-password>
 INFOTECH_DATABASE_PATH=/home/jdChen3398/Hajiwo.github.io/backend/infotech.sqlite3
 ```
 
-The feature defaults to disabled. When enabled without a configured password,
-the entry page returns 503. Passwords and databases must not be committed.
+The feature defaults to disabled. Password access is temporarily disabled:
+visitors can view, add and edit content directly. To restore the existing shared
+password gate, set `INFOTECH_REQUIRE_PASSWORD=true` and reload. In that mode,
+an unconfigured password returns 503. Passwords and databases must not be committed.
 
 ## Initial data transfer
 

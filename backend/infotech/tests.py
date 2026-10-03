@@ -6,7 +6,53 @@ from django.contrib.auth import get_user_model
 from django.utils import translation
 from django.urls import resolve
 
-@override_settings(INFOTECH_PASSWORD='infotech')
+
+@override_settings(INFOTECH_REQUIRE_PASSWORD=False, INFOTECH_PASSWORD='')
+class PublicGuideTests(TestCase):
+    databases = {'default', 'infotech'}
+
+    def test_anonymous_access_and_navigation(self):
+        for path in ['/infotech/', '/infotech/courses/add/', '/infotech/section/links/',
+                     '/infotech/section/links/add/', '/infotech/section/tips/', '/infotech/section/tips/add/']:
+            response = self.client.get(path)
+            self.assertEqual(response.status_code, 200)
+            self.assertContains(response, '/infotech/section/links/')
+            self.assertNotContains(response, '/infotech/lock/')
+        self.assertRedirects(self.client.get('/infotech/enter/'), '/infotech/')
+        self.assertNotIn('infotech_access', self.client.session)
+
+    def test_new_categories_create_filter_and_edit_without_login(self):
+        data = dict(name='Course', difficulty='medium', exam_form='open',
+                    description='Experience', semester='winter', capacity_limited='False')
+        for category in ['seminar', 'lab', 'non-tech', 'basic']:
+            self.assertRedirects(self.client.post('/infotech/courses/add/',
+                {**data, 'name': category + ' example', 'category': category}), '/infotech/')
+            course = Course.objects.get(category=category)
+            response = self.client.get('/infotech/', {'category': category})
+            self.assertEqual(list(response.context['courses']), [course])
+            self.assertRedirects(self.client.post(f'/infotech/courses/{course.pk}/edit/',
+                {**data, 'name': category + ' updated', 'category': category}), '/infotech/')
+            course.refresh_from_db()
+            self.assertEqual(course.name, category + ' updated')
+
+    def test_anonymous_card_creation_and_csrf(self):
+        self.assertRedirects(self.client.post('/infotech/section/tips/add/',
+            {'title': 'Public tip', 'body': 'Body'}), '/infotech/section/tips/')
+        self.assertEqual(Tip.objects.count(), 1)
+        client = Client(enforce_csrf_checks=True)
+        self.assertEqual(client.post('/infotech/section/tips/add/',
+            {'title': 'Blocked', 'body': 'Body'}).status_code, 403)
+
+    def test_category_labels_in_both_languages(self):
+        response = self.client.get('/infotech/courses/add/')
+        for label in ['研讨课', '实验课', '非技术课', '基础课']:
+            self.assertContains(response, label)
+        self.client.post('/infotech/language/', {'language': 'en'})
+        response = self.client.get('/infotech/courses/add/')
+        for label in ['Seminar', 'Lab', 'Non-tech', 'Basic']:
+            self.assertContains(response, label)
+
+@override_settings(INFOTECH_PASSWORD='infotech', INFOTECH_REQUIRE_PASSWORD=True)
 class CourseGuideTests(TestCase):
     databases = {'default', 'infotech'}
     def setUp(self):
@@ -133,7 +179,7 @@ class CourseGuideTests(TestCase):
         self.assertNotIn('infotech_access', self.client.session)
 
 
-@override_settings(INFOTECH_PASSWORD='infotech')
+@override_settings(INFOTECH_PASSWORD='infotech', INFOTECH_REQUIRE_PASSWORD=True)
 class CardTests(TestCase):
     databases = {'default', 'infotech'}
     def login(self):

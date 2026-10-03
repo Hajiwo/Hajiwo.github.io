@@ -1,4 +1,5 @@
 TEXT = {
+    'Seminar':'研讨课', 'Lab':'实验课', 'Non-tech':'非技术课', 'Basic':'基础课',
     'Website name':'网站名称', 'Website URL':'网址', 'Title':'标题', 'Body':'正文', 'Add link':'添加链接', 'Edit link':'编辑链接', 'Add tip':'添加小贴士', 'Edit tip':'编辑小贴士', 'Edit':'编辑', 'Add':'添加', 'No links yet':'暂无链接', 'No tips yet':'暂无小贴士', 'Use an HTTP or HTTPS URL.':'请输入 HTTP 或 HTTPS 网址。',
     'Guide':'指南', 'Course Recommendation':'课程推荐', 'Useful Links':'常用链接', 'Tips':'小贴士',
     'Name':'课程名称', 'Category':'类别', 'Exam Difficulty':'考试难度', 'Exam difficulty':'考试难度', 'Exam Form':'考试形式', 'Exam form':'考试形式',
@@ -11,4 +12,3 @@ TEXT = {
 }
 def text(value, lang):
     return TEXT.get(value, value) if lang == 'zh' else value
-

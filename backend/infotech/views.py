@@ -18,13 +18,15 @@ def protected(view):
     @wraps(view)
     @never_cache
     def wrapper(request, *args, **kwargs):
-        if not request.session.get('infotech_access'):
+        if settings.INFOTECH_REQUIRE_PASSWORD and not request.session.get('infotech_access'):
             return redirect('infotech:enter')
         return view(request, *args, **kwargs)
     return wrapper
 
 @never_cache
 def enter(request):
+    if not settings.INFOTECH_REQUIRE_PASSWORD:
+        return redirect('infotech:courses')
     if request.session.get('infotech_access'):
         return redirect('infotech:courses')
     if not settings.INFOTECH_PASSWORD:
@@ -43,7 +45,7 @@ def lock(request):
     language = request.session.get('infotech_language', 'zh')
     request.session.pop('infotech_access', None)
     request.session['infotech_language'] = language
-    return redirect('infotech:enter')
+    return redirect('infotech:enter' if settings.INFOTECH_REQUIRE_PASSWORD else 'infotech:courses')
 
 @protected
 def course_list(request):
@@ -103,4 +105,3 @@ def language(request):
     if not url_has_allowed_host_and_scheme(target, allowed_hosts={request.get_host()}, require_https=request.is_secure()) or not urlsplit(target).path.startswith(home):
         target = home
     return redirect(target)
-

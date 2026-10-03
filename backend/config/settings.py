@@ -34,6 +34,7 @@ TEMPLATES = [{
     'OPTIONS': {'context_processors': [
         'django.template.context_processors.request', 'django.contrib.auth.context_processors.auth',
         'django.contrib.messages.context_processors.messages',
+        'infotech.context_processors.access_mode',
     ]},
 }]
 WSGI_APPLICATION = 'config.wsgi.application'
@@ -46,6 +47,7 @@ DATABASES['infotech'] = {
 DATABASE_ROUTERS = ['infotech.router.InfoTechRouter']
 INFOTECH_ENABLED = os.getenv('INFOTECH_ENABLED', 'false').lower() == 'true'
 INFOTECH_PASSWORD = os.getenv('INFOTECH_PASSWORD', '')
+INFOTECH_REQUIRE_PASSWORD = os.getenv('INFOTECH_REQUIRE_PASSWORD', 'false').lower() == 'true'
 AUTH_PASSWORD_VALIDATORS = [
     {'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator'},
     {'NAME': 'django.contrib.auth.password_validation.MinimumLengthValidator'},
