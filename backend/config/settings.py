@@ -19,11 +19,12 @@ if not DEBUG and not ALLOWED_HOSTS:
 INSTALLED_APPS = [
     'django.contrib.admin', 'django.contrib.auth', 'django.contrib.contenttypes',
     'django.contrib.sessions', 'django.contrib.messages', 'django.contrib.staticfiles',
-    'corsheaders', 'rest_framework', 'blog',
+    'corsheaders', 'rest_framework', 'blog', 'infotech.apps.InfoTechConfig',
 ]
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware', 'corsheaders.middleware.CorsMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware', 'django.middleware.common.CommonMiddleware',
+    'infotech.middleware.GuideLanguageMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware', 'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware', 'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
@@ -37,6 +38,14 @@ TEMPLATES = [{
 }]
 WSGI_APPLICATION = 'config.wsgi.application'
 DATABASES = {'default': {'ENGINE': 'django.db.backends.sqlite3', 'NAME': os.getenv('DJANGO_DATABASE_PATH', str(BASE_DIR / 'db.sqlite3')), 'OPTIONS': {'timeout': 20}}}
+DATABASES['infotech'] = {
+    'ENGINE': 'django.db.backends.sqlite3',
+    'NAME': os.getenv('INFOTECH_DATABASE_PATH') or str(BASE_DIR / 'infotech.sqlite3'),
+    'OPTIONS': {'timeout': 20},
+}
+DATABASE_ROUTERS = ['infotech.router.InfoTechRouter']
+INFOTECH_ENABLED = os.getenv('INFOTECH_ENABLED', 'false').lower() == 'true'
+INFOTECH_PASSWORD = os.getenv('INFOTECH_PASSWORD', '')
 AUTH_PASSWORD_VALIDATORS = [
     {'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator'},
     {'NAME': 'django.contrib.auth.password_validation.MinimumLengthValidator'},
